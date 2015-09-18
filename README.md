@@ -1,6 +1,6 @@
 # LUSS
 
-LUSS is a URL shortening service.
+**L**USS is a **U**RL **S**hortening **S**ervice.
 
 ### License
 
