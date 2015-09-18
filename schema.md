@@ -36,7 +36,7 @@
       "role": "writer"
     },
   ]
-  "callbacks": [                   // callacks method
+  "callbacks": [                   // callack methods
     {
       "method": "GET",             // request type
       "url": "http//callback.com", // callback url
