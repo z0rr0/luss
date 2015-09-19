@@ -6,7 +6,13 @@
 package conf
 
 import (
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
     "log"
+    // "os"
+    "path/filepath"
+    "strings"
     "time"
 
     "gopkg.in/mgo.v2"
@@ -42,7 +48,7 @@ type MongoCfg struct {
 
 // cacheCfg is database connections pool settings
 type cacheCfg struct {
-    DbPoolSize int64 `json:"dbpoolsize"`
+    DbPoolSize int   `json:"dbpoolsize"`
     DbPoolTTL  int64 `json:"dbpoolttl"`
 }
 
@@ -51,5 +57,29 @@ type Config struct {
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
-    Logger   *log.Logger
+}
+
+// Addrs return an array of available MongoDB connections addresses.
+func (cfg *MongoCfg) Addrs() []string {
+    hosts := make([]string, len(cfg.Hosts))
+    for i, host := range cfg.Hosts {
+        hosts[i] = fmt.Sprintf("%v:%v", host, cfg.Port)
+    }
+    return hosts
+}
+
+// ParseConfig reads a configuration file and
+// returns a pointer to prepared Config structure.
+func ParseConfig(name string) (*Config, error) {
+    cfg := &Config{}
+    fullpath, err := filepath.Abs(strings.Trim(name, " "))
+    if err != nil {
+        return cfg, err
+    }
+    jsondata, err := ioutil.ReadFile(fullpath)
+    if err != nil {
+        return cfg, err
+    }
+    err = json.Unmarshal(jsondata, cfg)
+    return cfg, err
 }

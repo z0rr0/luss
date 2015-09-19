@@ -9,13 +9,12 @@ import (
     "crypto/tls"
     "crypto/x509"
     "errors"
-    "fmt"
     "io/ioutil"
     "log"
     "net"
     "os"
+    // "runtime/debug"
     "sync"
-    "sync/atomic"
     "time"
 
     "github.com/z0rr0/luss/conf"
@@ -23,8 +22,8 @@ import (
 )
 
 var (
-    // LoggerError is a logger for error messages
-    LoggerError = log.New(os.Stderr, "ERROR [LUSS-db]: ", log.Ldate|log.Ltime|log.Lshortfile)
+    // Logger is a logger for error messages
+    Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // Conn is database connection structure.
@@ -38,85 +37,109 @@ type Conn struct {
 // It needs: slow insert, fast update and read.
 type ConnPool struct {
     Pool  []*Conn
-    conf  *MongoConf
-    mutex sync.RWMutex
-    ptr   int // current positions
-    size  int // pool size
+    mutex sync.Mutex
 }
 
-// Push pushes a pointer of new mogno session to the connection pool.
+// Cap returns a recommended capacity for the connections channel.
+func (c *ConnPool) Cap() int {
+    var result int
+    switch s := c.Size(); {
+    case s > 128:
+        result = 32
+    case s > 32:
+        result = 16
+    default:
+        result = s
+    }
+    return result
+}
+
+// NewConnPool creates new connections pool.
+func NewConnPool(size int) *ConnPool {
+    c := &ConnPool{}
+    for i := 0; i < size; i++ {
+        c.Push(nil)
+    }
+    return c
+}
+
+// Push pushes a pointer of new MongoDB session to the connection pool.
 func (c *ConnPool) Push(s *mgo.Session) {
     c.mutex.Lock()
     defer c.mutex.Unlock()
-
     c.Pool = append(c.Pool, &Conn{Session: s})
-    c.size = len(c.Pool)
 }
 
 // Clean iterates by connections pool and closes all database sessions.
+// Only one Clean() function works in one time.
 func (c *ConnPool) Clean() {
-    c.mutex.RLock()
-    defer c.mutex.RUnlock()
+    Logger.Printf("run connection clean, num=%v", c.Size())
+
+    c.mutex.Lock()
+    defer c.mutex.Unlock()
+    i := 0
     for _, conn := range c.Pool {
-        // check session only to don't lock recently used connections
+        // check session only to don't close recently/now used connections
         if conn.Session != nil {
-            conn.mutex.Lock()
-            conn.close()
-            conn.mutex.Unlock()
+            conn.close(0)
+            i++
         }
     }
+    Logger.Printf("end connection clean, closed=%v", i)
+}
+
+// Size returns a pool size.
+func (c *ConnPool) Size() int {
+    return len(c.Pool)
 }
 
 // Monitor closes unused connections with period d.
-// It can be run in separated goroutine.
+// It can be run in a separated goroutine.
 func (c *ConnPool) Monitor(d time.Duration) {
     for {
         select {
         case <-time.After(d):
-            c.clean()
+            c.Clean()
         }
     }
 }
 
-// Produce constantly gets new connections from the pool,
-// opens it if needed and sends to ch channel.
-// If an error will be during connection opening,
-// then a consumer will get a connection with empty session.
-func (c *ConnPool) Produce(ch chan<- *Conn) error {
-    if c.size == 0 {
-        return errors.New("empty connections pool")
+// Produce constantly gets new connections from the pool, and sends to ch channel.
+// It doesn't open them, because a consumer will do this.
+// The channel ch should be buffered to exclude a bottle neck here.
+func (c *ConnPool) Produce(ch chan<- *Conn, err chan error) {
+    if c.Size() == 0 {
+        err <- errors.New("empty connections pool")
+        return
     }
-    // pool is not blocked because its size can't be decreased
+    err <- nil
+    // pool is not blocked because its size can't be decreased.
     for {
-        if c.ptr == c.size {
-            c.ptr = 0
+        for _, conn := range c.Pool {
+            ch <- conn
         }
-        conn := c.Pool[c.ptr%c.size]
-        conn.mutex.RLock()
-        // consumer should call conn.Release() later
-        once := func() {
-            conn.open(c.conf)
-        }
-        conn.one.Do(once)
-        ch <- conn
     }
-    return nil
 }
 
-// open opens new database connection but only if it wasn't ready before.
-func (c *Conn) open(cfg *conf.MongoCfg) error {
-    session, err := MongoDBConnection(c.conf)
-    if err != nil {
-        LoggerError.Printf("can't open database connection: %v", err)
-        return err
+// Open opens new database connection but only if it wasn't ready before.
+func (c *Conn) Open(cfg *conf.MongoCfg) error {
+    var err error
+    c.mutex.RLock()
+    openOnce := func() {
+        s, serr := MongoDBConnection(cfg)
+        if serr != nil {
+            err = serr
+            return
+        }
+        c.Session = s
     }
-    c.Session = session
-    return nil
+    c.one.Do(openOnce)
+    return err
 }
 
 // close closes open connection.
 // Connection pool can't be decreased, so it is not blocked in this method.
-func (c *Conn) close() {
+func (c *Conn) close(d time.Duration) {
     c.mutex.Lock()
     defer c.mutex.Unlock()
 
@@ -124,11 +147,18 @@ func (c *Conn) close() {
         c.Session.Close()
         c.Session, c.one = nil, sync.Once{}
     }
+    time.Sleep(d)
 }
 
 // Release releases connection resource, but doesn't close.
 func (c *Conn) Release() {
     c.mutex.RUnlock()
+}
+
+// C returns a pointer to the database collection cname.
+// It is only a wrapper method, and should be called only if connection c is opened.
+func (c *Conn) C(cfg *conf.MongoCfg, cname string) *mgo.Collection {
+    return c.Session.DB(cfg.Database).C(cname)
 }
 
 // MongoCredential initializes MongoDB credentials.
@@ -207,12 +237,31 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
     return session, nil
 }
 
-// GetConnection returns a database connection from the pool.
-// Caller should run conn.Release() after connection use in any way.
-func GetConnection(ch <-chan *Conn) (*Conn, error) {
+// GetConn returns a database connection from the pool.
+// Caller should run conn.Release() after connection usage if err is nil.
+func GetConn(cfg *conf.MongoCfg, ch <-chan *Conn) (*Conn, error) {
+    var (
+        i   uint
+        err error
+    )
     conn := <-ch
-    if conn.Session == nil {
-        return nil, errors.New("empty db session")
+    for i = 0; i < cfg.Reconnects; i++ {
+        err = conn.Open(cfg)
+        if err != nil {
+            conn.Release()
+            conn.close(cfg.RcnDelay)
+            continue
+        }
+        // send a ping before connection usage,
+        // it adds 100-150 µs during local tests.
+        err = conn.Session.Ping()
+        if err != nil {
+            conn.Release()
+            conn.close(cfg.RcnDelay)
+            continue
+        }
+        // all is ok
+        break
     }
-    return conn, nil
+    return conn, err
 }
