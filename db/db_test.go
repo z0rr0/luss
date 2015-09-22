@@ -7,64 +7,55 @@ package db
 
 import (
     "testing"
-    "time"
+    // "time"
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/test"
 )
 
-func checkConn(cfg *conf.MongoCfg, ch chan *Conn) error {
-    conn, err := GetConn(cfg, ch)
-    if err != nil {
-        return err
-    }
-    defer conn.Release()
-    Logger.Println("DB connection checked")
-    return err
-}
-
 func TestNewConnPool(t *testing.T) {
-    cf, err := conf.ParseConfig(test.TcConfigName())
+    cfg, err := conf.ParseConfig(test.TcConfigName())
     if err != nil {
         t.Errorf("invalid: %v", err)
         return
     }
-    // bad pool
-    pool := NewConnPool(0)
-    ch, errch := make(chan *Conn, pool.Cap()), make(chan error)
-    go pool.Produce(ch, errch)
-    err = <-errch
+    pool, err := NewConnPool(nil)
     if err == nil {
-        t.Errorf("icorrect behavior")
+        t.Errorf("incorrect behavior")
         return
     }
-    // good pool
-    pool = NewConnPool(5)
-    ch, errch = make(chan *Conn, pool.Cap()), make(chan error)
-    go pool.Produce(ch, errch)
-    err = <-errch
+    cfg.Cache.DbPoolSize = 0
+    pool, err = NewConnPool(cfg)
+    if err == nil {
+        t.Errorf("incorrect behavior")
+        return
+    }
+    cfg.Cache.DbPoolSize = 1
+    pool, err = NewConnPool(cfg)
     if err != nil {
         t.Errorf("invalid: %v", err)
         return
     }
-    d := 250 * time.Millisecond
-    go pool.Monitor(d)
-    for i := 0; i < 10; i++ {
-        err = checkConn(&cf.Db, ch)
-        if err != nil {
-            t.Errorf("invalid: %v", err)
-        }
+    t.Log(pool)
+    oldPass := cfg.Db.Password
+    cfg.Db.Password = "bad password"
+    conn, err := GetConn(cfg)
+    if err == nil {
+        t.Errorf("incorrect behavior")
+        return
     }
-    time.Sleep(d)
-}
-
-func TestCap(t *testing.T) {
-    sizes := map[int]int{0: 0, 1: 1, 31: 31, 48: 16, 64: 16, 120: 16, 130: 32, 250: 32, 1000: 32}
-    for k, v := range sizes {
-        p := NewConnPool(k)
-        if p.Cap() != v {
-            t.Errorf("invalid: %v != %v", p.Cap(), v)
-        }
+    ReleaseConn(conn)
+    Logger.Println("check valid value")
+    cfg.Db.Password, cfg.Db.MongoCred = oldPass, nil
+    // all is ok, check connection
+    conn, err = GetConn(cfg)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
     }
-
+    defer conn.Close(0)
+    defer ReleaseConn(conn)
+    if conn.Session == nil {
+        t.Errorf("incorrect behavior")
+    }
 }

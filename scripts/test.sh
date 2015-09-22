@@ -17,7 +17,7 @@ REVIEW=""
 PACKAGES_TEST=( \
 "test" \
 "db" \
-# "conf" \
+"conf" \
 )
 
 PACKAGES_CHECK=( \

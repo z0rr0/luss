@@ -34,6 +34,7 @@ type Conn struct {
     one     sync.Once
 }
 
+// New creates new Conn structure.
 func (c *Conn) New() hashq.Shared {
     return &Conn{}
 }
@@ -44,11 +45,13 @@ func (c *Conn) Close(d time.Duration) bool {
     c.mutex.Lock()
     defer c.mutex.Unlock()
     if c.Session == nil {
+        c.one = sync.Once{}
         return false
     }
     c.Session.Close()
     c.Session, c.one = nil, sync.Once{}
     time.Sleep(d)
+    return true
 }
 
 // Open opens new database connection but only if it wasn't ready before.
@@ -74,7 +77,7 @@ func (c *Conn) Release() {
 
 // C returns a pointer to the database collection cname.
 // It is only a wrapper method, and should be called only if connection c is opened.
-func (c *Conn) C(cfg *conf.Cofig, cname string) *mgo.Collection {
+func (c *Conn) C(cfg *conf.Config, cname string) *mgo.Collection {
     return c.Session.DB(cfg.Db.Database).C(cname)
 }
 
@@ -154,14 +157,23 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
     return session, nil
 }
 
+func ReleaseConn(c *Conn) {
+    if c != nil {
+        c.Release()
+    }
+}
+
 // GetConn returns a database connection from the pool.
 // Caller should run conn.Release() after connection usage.
 func GetConn(cfg *conf.Config) (*Conn, error) {
     err := errors.New("connection initial error")
     shared := <-cfg.Db.ConChan
     conn := shared.(*Conn)
-    for i := 0; i < cfg.Db.Reconnects-1; i++ {
-        err = conn.Open(cfg.Db)
+    if conn.Session == nil {
+        conn.Close(0)
+    }
+    for i := 0; i < cfg.Db.Reconnects; i++ {
+        err = conn.Open(&cfg.Db)
         if err == nil {
             err = conn.Session.Ping()
             if err == nil {
@@ -169,29 +181,28 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
             }
         }
         conn.Release()
-        conn.Close(cfg.RcnDelay)
+        conn.Close(cfg.Db.RcnDelay)
     }
     if err != nil {
-        err = conn.Open(cfg.Db)
-        if err == nil {
-            err = conn.Session.Ping()
-        }
+        // connection is already closed
+        conn = nil
     }
     return conn, err
 }
 
-func ConnPoolInit(cfg *conf.Config) error {
-    if cfg.Cache.DbPoolSize < 1 {
-        return errors.New("empty pool")
+// NewConnPool initializes new connections pool.
+func NewConnPool(cfg *conf.Config) (*hashq.HashQ, error) {
+    if cfg == nil {
+        return nil, errors.New("invalid parameter")
     }
     pool := hashq.New(cfg.Cache.DbPoolSize, &Conn{}, 0)
     ch, errch := make(chan hashq.Shared, cfg.ConnCap()), make(chan error)
     go pool.Produce(ch, errch)
     err := <-errch
     if err != nil {
-        return err
+        return nil, err
     }
     go pool.Monitor(time.Duration(cfg.Cache.DbPoolTTL) * time.Second)
     cfg.Db.ConChan = ch
-    return nil
+    return pool, nil
 }

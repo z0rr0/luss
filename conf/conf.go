@@ -42,6 +42,7 @@ type MongoCfg struct {
     Reconnects  int      `json:"reconnects"`
     RcnTime     int64    `json:"rcntime"`
     Debug       bool     `json:"debug"`
+    RcnDelay    time.Duration
     ConChan     chan hashq.Shared
     MongoCred   *mgo.DialInfo
     Logger      *log.Logger
@@ -51,6 +52,7 @@ type MongoCfg struct {
 type cacheCfg struct {
     DbPoolSize int   `json:"dbpoolsize"`
     DbPoolTTL  int64 `json:"dbpoolttl"`
+    Debug      bool  `json:"debug"`
 }
 
 // Config is main configuration storage.

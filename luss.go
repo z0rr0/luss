@@ -61,13 +61,13 @@ func main() {
     go func() {
         errc <- interrupt()
     }()
-    listener := fmt.Sprintf("%v:%v", utils.Cfg.C.Listener.Host, utils.Cfg.C.Listener.Port)
+    listener := fmt.Sprintf("%v:%v", utils.Cfg.Conf.Listener.Host, utils.Cfg.Conf.Listener.Port)
     utils.LoggerInfo.Printf("%v running: version=%v [%v]\n Listen: %v", Name, Version, Revision, listener)
     server := &http.Server{
         Addr:           listener,
         Handler:        http.DefaultServeMux,
-        ReadTimeout:    time.Duration(utils.Cfg.C.Listener.Timeout) * time.Second,
-        WriteTimeout:   time.Duration(utils.Cfg.C.Listener.Timeout) * time.Second,
+        ReadTimeout:    time.Duration(utils.Cfg.Conf.Listener.Timeout) * time.Second,
+        WriteTimeout:   time.Duration(utils.Cfg.Conf.Listener.Timeout) * time.Second,
         MaxHeaderBytes: 1 << 20,
         ErrorLog:       utils.LoggerError,
     }

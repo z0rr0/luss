@@ -15,7 +15,7 @@ func TestParseConfig(t *testing.T) {
     name := "bad"
     cfg, err := ParseConfig(name)
     if err == nil {
-        t.Errorf("icorrect behavior")
+        t.Errorf("incorrect behavior")
     }
     name = test.TcConfigName()
     cfg, err = ParseConfig(name + "  ")
@@ -23,11 +23,11 @@ func TestParseConfig(t *testing.T) {
         t.Errorf("invalid [%v]: %v", name, err)
     }
     if cfg == nil {
-        t.Errorf("icorrect behavior")
+        t.Errorf("incorrect behavior")
     }
     // check mongo addresses
     if len(cfg.Db.Addrs()) == 0 {
-        t.Errorf("icorrect behavior")
+        t.Errorf("incorrect behavior")
     }
 
 }

@@ -12,6 +12,7 @@ import (
     "os"
     "time"
 
+    "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
 )
@@ -41,9 +42,8 @@ var (
 // Configuration is main configuration storage.
 // It is used as a singleton.
 type Configuration struct {
-    C      *conf.Config
-    Pool   *db.ConnPool
-    Conn   chan *db.Conn
+    Conf   *conf.Config
+    Pool   *hashq.HashQ
     Logger *log.Logger
 }
 
@@ -64,12 +64,12 @@ func errorGen(msg, field string) error {
     return fmt.Errorf("invalid configuration \"%v\": %v", field, msg)
 }
 
-func checkDbConnection(cfg *conf.MongoCfg, ch chan *db.Conn) error {
-    conn, err := db.GetConn(cfg, ch)
+func checkDbConnection(cfg *conf.Config) error {
+    conn, err := db.GetConn(cfg)
     if err != nil {
         return err
     }
-    defer conn.Release()
+    defer db.ReleaseConn(conn)
     LoggerInfo.Println("DB connection checked")
     return err
 }
@@ -93,21 +93,18 @@ func InitConfig(filename string, debug bool) error {
         return err
     }
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
+    hashq.Debug(cf.Cache.Debug)
     // create connection pool
-    pool := db.NewConnPool(cf.Cache.DbPoolSize)
-    ch, errch := make(chan *db.Conn, pool.Cap()), make(chan error)
-    go pool.Produce(ch, errch)
-    err = <-errch
-    if err != nil {
-        return err
+    pool, perr := db.NewConnPool(cf)
+    if perr != nil {
+        return perr
     }
     // common configuration
-    Cfg = &Configuration{C: cf, Pool: pool, Conn: ch, Logger: LoggerError}
-    err = checkDbConnection(&Cfg.C.Db, Cfg.Conn)
+    Cfg = &Configuration{Conf: cf, Pool: pool, Logger: LoggerError}
+    err = checkDbConnection(Cfg.Conf)
     if err != nil {
         return err
     }
-    go Cfg.Pool.Monitor(time.Duration(Cfg.C.Cache.DbPoolTTL) * time.Second)
     Debug(debug)
     return nil
 }
