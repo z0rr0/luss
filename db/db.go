@@ -17,6 +17,7 @@ import (
     "sync"
     "time"
 
+    "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "gopkg.in/mgo.v2"
 )
@@ -33,92 +34,21 @@ type Conn struct {
     one     sync.Once
 }
 
-// ConnPool is a pool of database connections.
-// It needs: slow insert, fast update and read.
-type ConnPool struct {
-    Pool  []*Conn
-    mutex sync.Mutex
+func (c *Conn) New() hashq.Shared {
+    return &Conn{}
 }
 
-// Cap returns a recommended capacity for the connections channel.
-func (c *ConnPool) Cap() int {
-    var result int
-    switch s := c.Size(); {
-    case s > 128:
-        result = 32
-    case s > 32:
-        result = 16
-    default:
-        result = s
-    }
-    return result
-}
-
-// NewConnPool creates new connections pool.
-func NewConnPool(size int) *ConnPool {
-    c := &ConnPool{}
-    for i := 0; i < size; i++ {
-        c.Push(nil)
-    }
-    return c
-}
-
-// Push pushes a pointer of new MongoDB session to the connection pool.
-func (c *ConnPool) Push(s *mgo.Session) {
+// Close closes an opened connection.
+// Connection pool can't be decreased, so it is not blocked in this method.
+func (c *Conn) Close(d time.Duration) bool {
     c.mutex.Lock()
     defer c.mutex.Unlock()
-    c.Pool = append(c.Pool, &Conn{Session: s})
-}
-
-// Clean iterates by connections pool and closes all database sessions.
-// Only one Clean() function works in one time.
-func (c *ConnPool) Clean() {
-    Logger.Printf("run connection clean, num=%v", c.Size())
-
-    c.mutex.Lock()
-    defer c.mutex.Unlock()
-    i := 0
-    for _, conn := range c.Pool {
-        // check session only to don't close recently/now used connections
-        if conn.Session != nil {
-            conn.close(0)
-            i++
-        }
+    if c.Session == nil {
+        return false
     }
-    Logger.Printf("end connection clean, closed=%v", i)
-}
-
-// Size returns a pool size.
-func (c *ConnPool) Size() int {
-    return len(c.Pool)
-}
-
-// Monitor closes unused connections with period d.
-// It can be run in a separated goroutine.
-func (c *ConnPool) Monitor(d time.Duration) {
-    for {
-        select {
-        case <-time.After(d):
-            c.Clean()
-        }
-    }
-}
-
-// Produce constantly gets new connections from the pool, and sends to ch channel.
-// It doesn't open them, because a consumer will do this.
-// The channel ch should be buffered to exclude a bottle neck here.
-func (c *ConnPool) Produce(ch chan<- *Conn, err chan error) {
-    if c.Size() == 0 {
-        err <- errors.New("empty connections pool")
-        return
-    }
-    err <- nil
-    // pool is not blocked because its size can't be decreased.
-    for {
-        for _, conn := range c.Pool {
-            ch <- conn
-        }
-    }
+    c.Session.Close()
+    c.Session, c.one = nil, sync.Once{}
+    time.Sleep(d)
 }
 
 // Open opens new database connection but only if it wasn't ready before.
@@ -137,19 +67,6 @@ func (c *Conn) Open(cfg *conf.MongoCfg) error {
     return err
 }
 
-// close closes open connection.
-// Connection pool can't be decreased, so it is not blocked in this method.
-func (c *Conn) close(d time.Duration) {
-    c.mutex.Lock()
-    defer c.mutex.Unlock()
-
-    if c.Session != nil {
-        c.Session.Close()
-        c.Session, c.one = nil, sync.Once{}
-    }
-    time.Sleep(d)
-}
-
 // Release releases connection resource, but doesn't close.
 func (c *Conn) Release() {
     c.mutex.RUnlock()
@@ -157,8 +74,8 @@ func (c *Conn) Release() {
 
 // C returns a pointer to the database collection cname.
 // It is only a wrapper method, and should be called only if connection c is opened.
-func (c *Conn) C(cfg *conf.MongoCfg, cname string) *mgo.Collection {
-    return c.Session.DB(cfg.Database).C(cname)
+func (c *Conn) C(cfg *conf.Cofig, cname string) *mgo.Collection {
+    return c.Session.DB(cfg.Db.Database).C(cname)
 }
 
 // MongoCredential initializes MongoDB credentials.
@@ -238,30 +155,43 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 }
 
 // GetConn returns a database connection from the pool.
-// Caller should run conn.Release() after connection usage if err is nil.
-func GetConn(cfg *conf.MongoCfg, ch <-chan *Conn) (*Conn, error) {
-    var (
-        i   uint
-        err error
-    )
-    conn := <-ch
-    for i = 0; i < cfg.Reconnects; i++ {
-        err = conn.Open(cfg)
-        if err != nil {
-            conn.Release()
-            conn.close(cfg.RcnDelay)
-            continue
+// Caller should run conn.Release() after connection usage.
+func GetConn(cfg *conf.Config) (*Conn, error) {
+    err := errors.New("connection initial error")
+    shared := <-cfg.Db.ConChan
+    conn := shared.(*Conn)
+    for i := 0; i < cfg.Db.Reconnects-1; i++ {
+        err = conn.Open(cfg.Db)
+        if err == nil {
+            err = conn.Session.Ping()
+            if err == nil {
+                break
+            }
         }
-        // send a ping before connection usage,
-        // it adds 100-150 µs during local tests.
-        err = conn.Session.Ping()
-        if err != nil {
-            conn.Release()
-            conn.close(cfg.RcnDelay)
-            continue
+        conn.Release()
+        conn.Close(cfg.RcnDelay)
+    }
+    if err != nil {
+        err = conn.Open(cfg.Db)
+        if err == nil {
+            err = conn.Session.Ping()
         }
-        // all is ok
-        break
     }
     return conn, err
+}
+
+func ConnPoolInit(cfg *conf.Config) error {
+    if cfg.Cache.DbPoolSize < 1 {
+        return errors.New("empty pool")
+    }
+    pool := hashq.New(cfg.Cache.DbPoolSize, &Conn{}, 0)
+    ch, errch := make(chan hashq.Shared, cfg.ConnCap()), make(chan error)
+    go pool.Produce(ch, errch)
+    err := <-errch
+    if err != nil {
+        return err
+    }
+    go pool.Monitor(time.Duration(cfg.Cache.DbPoolTTL) * time.Second)
+    cfg.Db.ConChan = ch
+    return nil
 }

@@ -15,6 +15,7 @@ import (
     "strings"
     "time"
 
+    "github.com/z0rr0/hashq"
     "gopkg.in/mgo.v2"
 )
 
@@ -38,10 +39,10 @@ type MongoCfg struct {
     Ssl         bool     `json:"ssl"`
     SslKeyFile  string   `json:"sslkeyfile"`
     PrimaryRead bool     `json:"primaryread"`
-    Reconnects  uint     `json:"reconnects"`
+    Reconnects  int      `json:"reconnects"`
     RcnTime     int64    `json:"rcntime"`
     Debug       bool     `json:"debug"`
-    RcnDelay    time.Duration
+    ConChan     chan hashq.Shared
     MongoCred   *mgo.DialInfo
     Logger      *log.Logger
 }
@@ -57,6 +58,22 @@ type Config struct {
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
+}
+
+// ConnCap returns a recommended connections capacity.
+func (c *Config) ConnCap() int {
+    var result int
+    switch {
+    case c.Cache.DbPoolSize > 128:
+        result = 32
+    case c.Cache.DbPoolSize > 32:
+        result = 16
+    case c.Cache.DbPoolSize > 8:
+        result = 8
+    default:
+        result = c.Cache.DbPoolSize
+    }
+    return result
 }
 
 // Addrs return an array of available MongoDB connections addresses.
