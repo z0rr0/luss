@@ -2,7 +2,7 @@
 
 **L**USS is a **U**RL **S**hortening **S**ervice.
 
-**IT IS NOT READY NOW!**
+**IT IS NOT READY YET!**
 
 ### License
 

@@ -28,11 +28,12 @@ var (
 )
 
 // Conn is database connection structure.
+// mgo is thread-safe and pings a connection after its opening.
 type Conn struct {
-    Session  *mgo.Session
-    Database *mgo.Database
-    mutex    sync.RWMutex
-    one      sync.Once
+    Session *mgo.Session
+    mutex   sync.RWMutex
+    one     sync.Once
+    rlu     bool // recently used
 }
 
 // New creates new Conn structure.
@@ -40,24 +41,34 @@ func (c *Conn) New() hashq.Shared {
     return &Conn{}
 }
 
-// Close closes an opened connection.
+// Close closes an opened connection. d is a timeout after closing.
 // Connection pool can't be decreased, so it is not blocked in this method.
 func (c *Conn) Close(d time.Duration) bool {
     c.mutex.Lock()
     defer c.mutex.Unlock()
     if c.Session == nil {
-        c.Database, c.one = nil, sync.Once{}
+        c.one = sync.Once{}
+        return false
+    }
+    // don't close a connection immediately,
+    // only if it was not used during all d period.
+    if c.rlu {
+        c.rlu = false
         return false
     }
     c.Session.Close()
-    c.Session, c.Database, c.one = nil, nil, sync.Once{}
+    c.Session, c.one = nil, sync.Once{}
     time.Sleep(d)
     return true
 }
 
 // Open opens new database connection but only if it wasn't ready before.
-func (c *Conn) Open(cfg *conf.MongoCfg) error {
-    var err error
+// The boolean returned value will be true, it a connection was opened firstly.
+func (c *Conn) Open(cfg *conf.MongoCfg) (bool, error) {
+    var (
+        err   error
+        isNew bool
+    )
     c.mutex.RLock()
     openOnce := func() {
         s, serr := MongoDBConnection(cfg)
@@ -65,11 +76,11 @@ func (c *Conn) Open(cfg *conf.MongoCfg) error {
             err = serr
             return
         }
-        c.Session = s
+        c.Session, isNew = s, true
         c.Database = s.DB(cfg.Db.Database)
     }
     c.one.Do(openOnce)
-    return err
+    return isNew, err
 }
 
 // release releases connection resource, but doesn't close.
@@ -80,7 +91,8 @@ func (c *Conn) release() {
 // C returns a pointer to the database collection cname.
 // It is only a wrapper method, and should be called only if connection c is opened.
 func (c *Conn) C(cname string) *mgo.Collection {
-    return c.Database.C(cname)
+    // default database from mgo.DialInfo will be used.
+    return c.Session.DB("").C(cname)
 }
 
 // MongoCredential initializes MongoDB credentials.
@@ -159,6 +171,7 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
     return session, nil
 }
 
+// ReleaseConn unlocks a connection if it exists.
 func ReleaseConn(c *Conn) {
     if c != nil {
         c.release()
@@ -168,25 +181,28 @@ func ReleaseConn(c *Conn) {
 // GetConn returns a database connection from the pool.
 // Caller should run conn.Release() after connection usage.
 func GetConn(cfg *conf.Config) (*Conn, error) {
-    err := errors.New("connection initial error")
+    isNew, err := true, errors.New("connection initial error")
     shared := <-cfg.Db.ConChan
     conn := shared.(*Conn)
     for i := 0; i < cfg.Db.Reconnects; i++ {
-        err = conn.Open(&cfg.Db)
-        if err == nil {
+        isNew, err = conn.Open(&cfg.Db)
+        if !isNew && (err == nil) {
             err = conn.Session.Ping()
-            if err == nil {
-                break
-            }
+        }
+        if err == nil {
+            break
         }
         conn.Release()
         conn.Close(cfg.Db.RcnDelay)
     }
     if err != nil {
         // connection is already closed
-        conn = nil
+        // don't return it to use in ReleaseConn
+        return nil, err
     }
-    return conn, err
+    // Close() checks and updates this field also
+    conn.rlu = true
+    return conn, nil
 }
 
 // NewConnPool initializes new connections pool.
