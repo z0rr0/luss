@@ -29,9 +29,10 @@ var (
 
 // Conn is database connection structure.
 type Conn struct {
-    Session *mgo.Session
-    mutex   sync.RWMutex
-    one     sync.Once
+    Session  *mgo.Session
+    Database *mgo.Database
+    mutex    sync.RWMutex
+    one      sync.Once
 }
 
 // New creates new Conn structure.
@@ -45,11 +46,11 @@ func (c *Conn) Close(d time.Duration) bool {
     c.mutex.Lock()
     defer c.mutex.Unlock()
     if c.Session == nil {
-        c.one = sync.Once{}
+        c.Database, c.one = nil, sync.Once{}
         return false
     }
     c.Session.Close()
-    c.Session, c.one = nil, sync.Once{}
+    c.Session, c.Database, c.one = nil, nil, sync.Once{}
     time.Sleep(d)
     return true
 }
@@ -65,20 +66,21 @@ func (c *Conn) Open(cfg *conf.MongoCfg) error {
             return
         }
         c.Session = s
+        c.Database = s.DB(cfg.Db.Database)
     }
     c.one.Do(openOnce)
     return err
 }
 
-// Release releases connection resource, but doesn't close.
-func (c *Conn) Release() {
+// release releases connection resource, but doesn't close.
+func (c *Conn) release() {
     c.mutex.RUnlock()
 }
 
 // C returns a pointer to the database collection cname.
 // It is only a wrapper method, and should be called only if connection c is opened.
-func (c *Conn) C(cfg *conf.Config, cname string) *mgo.Collection {
-    return c.Session.DB(cfg.Db.Database).C(cname)
+func (c *Conn) C(cname string) *mgo.Collection {
+    return c.Database.C(cname)
 }
 
 // MongoCredential initializes MongoDB credentials.
@@ -159,7 +161,7 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 
 func ReleaseConn(c *Conn) {
     if c != nil {
-        c.Release()
+        c.release()
     }
 }
 
@@ -169,9 +171,6 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
     err := errors.New("connection initial error")
     shared := <-cfg.Db.ConChan
     conn := shared.(*Conn)
-    if conn.Session == nil {
-        conn.Close(0)
-    }
     for i := 0; i < cfg.Db.Reconnects; i++ {
         err = conn.Open(&cfg.Db)
         if err == nil {
