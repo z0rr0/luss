@@ -195,6 +195,7 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
             // conn is RLocked by Open()
             return conn, nil
         }
+        Logger.Printf("WARNING: failed %v attempt to open connection %p", i+1, conn)
         conn.Release()
         conn.Close(cfg.Db.RcnDelay)
     }
