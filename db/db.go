@@ -190,19 +190,17 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
             err = conn.Session.Ping()
         }
         if err == nil {
-            break
+            // Close() checks and updates this field also
+            conn.rlu = true
+            // conn is RLocked by Open()
+            return conn, nil
         }
         conn.Release()
         conn.Close(cfg.Db.RcnDelay)
     }
-    if err != nil {
-        // connection is already closed
-        // don't return it to use in ReleaseConn
-        return nil, err
-    }
-    // Close() checks and updates this field also
-    conn.rlu = true
-    return conn, nil
+    // connection is already closed
+    // don't return it to use in ReleaseConn
+    return nil, err
 }
 
 // NewConnPool initializes new connections pool.
