@@ -8,11 +8,18 @@
 
 GOBIN="`which go`"
 PACKAGE="github.com/z0rr0/luss"
-REPO="$GOPATH/src/$PACKAGE"
-CONFIG="$REPO/config.example.json"
-TESTCONFIG="$GOPATH/luss.json"
-BUILD="$REPO/scripts/build.sh"
 REVIEW=""
+LOCALGOPATH="$GOPATH"
+
+if [[ -n "$WINDIR" ]]; then
+    # replace LOCALGOPATH
+    cd $GOPATH
+    LOCALGOPATH="`pwd`"
+fi
+REPO="$LOCALGOPATH/src/$PACKAGE"
+CONFIG="$REPO/config.example.json"
+TESTCONFIG="$LOCALGOPATH/luss.json"
+BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
 "test" \
@@ -70,16 +77,10 @@ else
     echo "WARNING: golint is not found"
 fi
 
-if [[ -n "$WINDIR" ]]; then
-    echo "WARNIGN: the tests will not be run on Windows platform"
-    exit 0
-fi
-
 if [[ -n "$REVIEW" ]]; then
     echo "INFO: tests running was ignored"
     exit 0
 fi
-
 
 for p in ${PACKAGES_TEST[@]}; do
     # run tests

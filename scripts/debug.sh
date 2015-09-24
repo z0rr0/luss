@@ -5,10 +5,18 @@
 #
 # This script builds a main package and runs it using debug flag
 
-REPO="$GOPATH/src/github.com/z0rr0/luss"
+LOCALGOPATH="$GOPATH"
+
+if [[ -n "$WINDIR" ]]; then
+    # replace LOCALGOPATH
+    cd $GOPATH
+    LOCALGOPATH="`pwd`"
+fi
+
+REPO="$LOCALGOPATH/src/github.com/z0rr0/luss"
 BUILD="$REPO/scripts/build.sh"
 CONFIG="$REPO/config.example.json"
-TESTCONFIG="$GOPATH/luss.json"
+TESTCONFIG="$LOCALGOPATH/luss.json"
 
 if [[ ! -x $BUILD ]]; then
     echo "ERROR: not found build script: $BUILD"
@@ -25,5 +33,5 @@ $BUILD -v || exit 3
 cp -f $CONFIG $TESTCONFIG
 /bin/sed -i 's/\/\/.*$//g' $TESTCONFIG
 
-cd $REPO
-exec $GOPATH/bin/luss -debug -config $TESTCONFIG
+cd $LOCALGOPATH
+exec ./bin/luss -debug -config `basename $TESTCONFIG`

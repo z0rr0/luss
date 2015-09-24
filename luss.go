@@ -29,8 +29,8 @@ var (
     Version = ""
     // Revision is revision number
     Revision = ""
-    // Date is build date
-    Date = ""
+    // BuildDate is build date
+    BuildDate = ""
 )
 
 func interrupt() error {
@@ -50,7 +50,7 @@ func main() {
     config := flag.String("config", Config, "configuration file")
     flag.Parse()
     if *version {
-        fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, Date)
+        fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
         return
     }
     err := utils.InitConfig(*config, *debug)
@@ -62,7 +62,7 @@ func main() {
         errc <- interrupt()
     }()
     listener := fmt.Sprintf("%v:%v", utils.Cfg.Conf.Listener.Host, utils.Cfg.Conf.Listener.Port)
-    utils.LoggerInfo.Printf("%v running: version=%v [%v]\n Listen: %v", Name, Version, Revision, listener)
+    utils.LoggerInfo.Printf("%v running: version=%v [%v %v]\n Listen: %v", Name, Version, Revision, BuildDate, listener)
     server := &http.Server{
         Addr:           listener,
         Handler:        http.DefaultServeMux,

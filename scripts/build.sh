@@ -14,8 +14,15 @@ GITBIN="`which git`"
 REPO="github.com/z0rr0/luss"
 VERBOSE=""
 CLEAN=""
+LOCALGOPATH="$GOPATH"
 
-if [ -z "$GOPATH" ]; then
+if [[ -n "$WINDIR" ]]; then
+    # replace LOCALGOPATH
+    cd $GOPATH
+    LOCALGOPATH="`pwd`"
+fi
+
+if [ -z "$LOCALGOPATH" ]; then
     echo "ERROR: set $GOPATH env"
     exit 1
 fi
@@ -28,21 +35,21 @@ if [ ! -x "$GITBIN" ]; then
     exit 3
 fi
 
-cd ${GOPATH}/src/${REPO}
+cd ${LOCALGOPATH}/src/${REPO}
 gittag="`$GITBIN tag | sort --version-sort | tail -1`"
 gitver="`$GITBIN log --oneline | head -1 `"
 if [[ -z "$gittag" ]]; then
     gittag="Na"
 fi
 dbuild="`date --utc +\"%F_%T\"`UTC"
-version="-X main.Version=$gittag -X main.Revision=git:${gitver:0:7} -X main.Date=$dbuild"
+version="-X main.Version=$gittag -X main.Revision=git:${gitver:0:7} -X main.BuildDate=$dbuild"
 
 options=""
 while getopts ":fvpr" opt; do
     case $opt in
         f)
             # options="$options -a"
-            rm -f $GOPATH/bin/*
+            rm -f $LOCALGOPATH/bin/*
             ;;
         v)
             options="$options -v"
@@ -59,9 +66,9 @@ while getopts ":fvpr" opt; do
 done
 
 if [[ -n "$CLEAN" ]]; then
-    find ${GOPATH}/src/${REPO} -type f -name coverage.out -exec rm -f '{}' \;
-    find ${GOPATH}/src/${REPO} -type f -name trace.out -exec rm -f '{}' \;
-    find ${GOPATH}/src/${REPO} -type f -name "*.test" -exec rm -f '{}' \;
+    find ${LOCALGOPATH}/src/${REPO} -type f -name coverage.out -exec rm -f '{}' \;
+    find ${LOCALGOPATH}/src/${REPO} -type f -name trace.out -exec rm -f '{}' \;
+    find ${LOCALGOPATH}/src/${REPO} -type f -name "*.test" -exec rm -f '{}' \;
 fi
 
 $GOBIN install $options -ldflags "$version" $REPO

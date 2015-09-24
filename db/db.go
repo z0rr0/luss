@@ -77,7 +77,6 @@ func (c *Conn) Open(cfg *conf.MongoCfg) (bool, error) {
             return
         }
         c.Session, isNew = s, true
-        c.Database = s.DB(cfg.Db.Database)
     }
     c.one.Do(openOnce)
     return isNew, err
@@ -196,7 +195,7 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
             return conn, nil
         }
         Logger.Printf("WARNING: failed %v attempt to open connection %p", i+1, conn)
-        conn.Release()
+        conn.release()
         conn.Close(cfg.Db.RcnDelay)
     }
     // connection is already closed
