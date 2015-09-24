@@ -1,0 +1,19 @@
+{
+	"ImportPath": "github.com/z0rr0/luss",
+	"GoVersion": "go1.5.1",
+	"Packages": [
+		"github.com/z0rr0/luss"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/z0rr0/hashq",
+			"Comment": "v2.0",
+			"Rev": "c490e37e12b3dfd1dcdb1d165d0a7af153935e86"
+		},
+		{
+			"ImportPath": "gopkg.in/mgo.v2",
+			"Comment": "r2015.06.03-5-g22287ba",
+			"Rev": "22287bab4379e1fbf6002fb4eb769888f3fb224c"
+		}
+	]
+}
