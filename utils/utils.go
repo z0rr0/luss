@@ -74,11 +74,11 @@ func checkDbConnection(cfg *conf.Config) error {
     return err
 }
 
-// InitConfig initializes configuration from a file.
-func InitConfig(filename string, debug bool) error {
+func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
+    Debug(debug)
     cf, err := conf.ParseConfig(filename)
     if err != nil {
-        return err
+        return nil, err
     }
     // check configuration values
     switch {
@@ -92,9 +92,18 @@ func InitConfig(filename string, debug bool) error {
         err = errorGen(fmt.Sprintf("insecure salt values, min length is %v symbols", conf.SaltsLen), "listener.salts")
     }
     if err != nil {
-        return err
+        return nil, err
     }
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
+    return cf, nil
+}
+
+// InitConfig initializes configuration from a file.
+func InitConfig(filename string, debug bool) error {
+    cf, err := InitFileConfig(filename, debug)
+    if err != nil {
+        return err
+    }
     hashq.Debug(cf.Cache.Debug)
     // create connection pool
     pool, perr := db.NewConnPool(cf)
@@ -107,6 +116,5 @@ func InitConfig(filename string, debug bool) error {
     if err != nil {
         return err
     }
-    Debug(debug)
     return nil
 }
