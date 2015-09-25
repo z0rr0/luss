@@ -2,7 +2,11 @@
   "listener": {
     "host": "",              // HTTP server host
     "port": 10001,           // HTTP server port
-    "timeout": 30            // HTTP server timeout
+    "timeout": 30,           // HTTP server timeout
+    "salts": [               // security salts[2]
+      "ABCDEFGHIJKLMNOP",
+      "ABCDEFGHIJKLMNOP"
+    ]
   },
   "database": {              // MongoDB configuration:
     "hosts": ["localhost"],  //   servers list
@@ -23,6 +27,6 @@
   "cache": {                 // cache settings
     "dbpoolsize": 2,         // size of database connections pool
     "dbpoolttl": 5,          // period between pool clean (seconds)
-    "debug": true            // turn on connections pool debug
+    "debug": false           // turn on connections pool debug
   }
 }

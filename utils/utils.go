@@ -88,6 +88,8 @@ func InitConfig(filename string, debug bool) error {
         err = errorGen("database reconnects attempts should be greater than zero", "database.reconnects")
     case cf.Cache.DbPoolSize < 1:
         err = errorGen("connection pool size should be greater than zero", "cache.dbpoolsize")
+    case !cf.GoodSalts():
+        err = errorGen(fmt.Sprintf("insecure salt values, min length is %v symbols", conf.SaltsLen), "listener.salts")
     }
     if err != nil {
         return err

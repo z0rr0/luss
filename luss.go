@@ -14,6 +14,7 @@ import (
     "syscall"
     "time"
 
+    "github.com/z0rr0/luss/users"
     "github.com/z0rr0/luss/utils"
 )
 
@@ -73,6 +74,7 @@ func main() {
     }
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         fmt.Fprintf(w, "%v running: version=%v [%v]\n Listen: %v", Name, Version, Revision, listener)
+        fmt.Fprintf(w, "pwd=%v", users.PwdHash("admin", "admin", utils.Cfg.Conf))
     })
     // run server
     go func() {

@@ -10,7 +10,6 @@ import (
     "fmt"
     "io/ioutil"
     "log"
-    // "os"
     "path/filepath"
     "strings"
     "time"
@@ -19,11 +18,17 @@ import (
     "gopkg.in/mgo.v2"
 )
 
+const (
+    // SaltsLen in minimal recommended salt length.
+    SaltsLen = 16
+)
+
 // listener is HTTP server configuration
 type listener struct {
-    Host    string `json:"host"`
-    Port    uint   `json:"port"`
-    Timeout int64  `json:"timeout"`
+    Host    string    `json:"host"`
+    Port    uint      `json:"port"`
+    Timeout int64     `json:"timeout"`
+    Salts   [2]string `json:"salts"`
 }
 
 // MongoCfg is database configuration settings
@@ -76,6 +81,16 @@ func (c *Config) ConnCap() int {
         result = c.Cache.DbPoolSize
     }
     return result
+}
+
+// GoodSalts verifies salts values.
+func (c *Config) GoodSalts() bool {
+    for _, v := range c.Listener.Salts {
+        if len(v) < SaltsLen {
+            return false
+        }
+    }
+    return true
 }
 
 // Addrs return an array of available MongoDB connections addresses.
