@@ -21,17 +21,15 @@ const (
     // Size512 = 64
     // Size256 = 32
 
-    // tokenLen is size of token in bytes.
-    tokenLen = 32
-    pwIters  = 4096
+    pwIters = 4096
 )
 
 // TokenGen is 24+tokenLen
-func TokenGen(username string, c *conf.Config) string {
-    h := make([]byte, tokenLen)
+func TokenGen(value string, c *conf.Config) string {
+    h := make([]byte, c.Listener.Security.TokenLen)
     d := sha3.NewShake256()
-    d.Write([]byte(c.Listener.Salts[0]))
-    d.Write([]byte(username))
+    d.Write([]byte(c.Listener.Security.Salt))
+    d.Write([]byte(value))
     d.Read(h)
     return hex.EncodeToString(h)
 }

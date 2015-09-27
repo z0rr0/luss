@@ -7,6 +7,7 @@ package conf
 
 import (
     "encoding/json"
+    "errors"
     "fmt"
     "io/ioutil"
     "log"
@@ -23,12 +24,19 @@ const (
     SaltsLen = 16
 )
 
+// security contains main security settings.
+type security struct {
+    Salt     string `json:"salt"`
+    DbKeys   uint   `json:"dbkeys"`
+    TokenLen uint   `json:"tokenlen"`
+}
+
 // listener is HTTP server configuration
 type listener struct {
-    Host    string    `json:"host"`
-    Port    uint      `json:"port"`
-    Timeout int64     `json:"timeout"`
-    Salts   [2]string `json:"salts"`
+    Host     string   `json:"host"`
+    Port     uint     `json:"port"`
+    Timeout  int64    `json:"timeout"`
+    Security security `json:"security"`
 }
 
 // MongoCfg is database configuration settings
@@ -85,12 +93,7 @@ func (c *Config) ConnCap() int {
 
 // GoodSalts verifies salts values.
 func (c *Config) GoodSalts() bool {
-    for _, v := range c.Listener.Salts {
-        if len(v) < SaltsLen {
-            return false
-        }
-    }
-    return true
+    return len(c.Listener.Security.Salt) >= SaltsLen
 }
 
 // Addrs return an array of available MongoDB connections addresses.

@@ -89,8 +89,13 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     case cf.Cache.DbPoolSize < 1:
         err = errorGen("connection pool size should be greater than zero", "cache.dbpoolsize")
     case !cf.GoodSalts():
-        err = errorGen(fmt.Sprintf("insecure salt values, min length is %v symbols", conf.SaltsLen), "listener.salts")
+        err = errorGen(fmt.Sprintf("insecure salt value, min length is %v symbols", conf.SaltsLen), "listener.security.salt")
+    case cf.Listener.Security.DbKeys < 1:
+        err = errorGen("incorrect or empty value", "listener.security.dbkeys")
+    case cf.Listener.Security.TokenLen < 1:
+        err = errorGen("incorrect or empty value", "listener.security.tokenlen")
     }
+
     if err != nil {
         return nil, err
     }
