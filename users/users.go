@@ -117,17 +117,17 @@ func CreateUser(name, role string, c *conf.Config) (*User, error) {
 // genToken generates new user's token.
 // It looks as [username+password], and it is not very secrete, but quickly.
 func genToken(c *conf.Config) (string, string, error) {
-    rndB, err := GenRndBytes(c.Listener.Security.TokenLen)
+    r, err := GenRndBytes(c.Listener.Security.TokenLen)
     if err != nil {
         return "", "", err
     }
     h := make([]byte, c.Listener.Security.TokenLen)
     d := sha3.NewShake256()
     d.Write([]byte(c.Listener.Security.Salt))
-    d.Write(rndB)
+    d.Write(r)
     d.Read(h)
     // token=rnd[32]+hash(rnd+salt)[32]
-    return hex.EncodeToString(rndB), hex.EncodeToString(h), nil
+    return hex.EncodeToString(r), hex.EncodeToString(h), nil
 }
 
 // CheckToken verifies incoming token, checks length and hash.
@@ -135,17 +135,17 @@ func CheckToken(token string, c *conf.Config) error {
     if len(token) == 0 {
         return errors.New("empty token value")
     }
-    tokenB, err := hex.DecodeString(token)
+    fullToken, err := hex.DecodeString(token)
     if err != nil {
         return err
     }
-    n := len(tokenB)
+    n := len(fullToken)
     h := make([]byte, n/2)
     d := sha3.NewShake256()
     d.Write([]byte(c.Listener.Security.Salt))
-    d.Write(tokenB[:n/2])
+    d.Write(fullToken[:n/2])
     d.Read(h)
-    if !bytes.Equal(h, tokenB[n/2:n]) {
+    if !bytes.Equal(h, fullToken[n/2:n]) {
         return errors.New("invalid token")
     }
     return nil

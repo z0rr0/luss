@@ -96,20 +96,20 @@ func BenchmarkCheckToken(b *testing.B) {
     name := test.TcConfigName()
     err := utils.InitConfig(name, true)
     if err != nil {
-        log.Println("error: %v", err)
+        log.Printf("error: %v", err)
         return
     }
     c := utils.Cfg.Conf
     p1, p2, err := genToken(c)
     if err != nil {
-        log.Println("invalid value: %v", err)
+        log.Printf("invalid value: %v", err)
     }
     val := p1 + p2
     b.ResetTimer()
     for i := 0; i < b.N; i++ {
         err = CheckToken(val, c)
         if err != nil {
-            log.Println("error: %v", err)
+            log.Printf("error: %v", err)
             break
         }
     }

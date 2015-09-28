@@ -17,17 +17,6 @@ db.users.ensureIndex({"name": 1}, {"unique": 1})
 db.users.ensureIndex({"token": 1, "role": 1})
 ```
 
-**db.keys** - application keys
-
-```js
-{
-  "_id": ObjectId(),               // item's ID
-  "value": "some key value",       // secrete app key
-  "created": ISODate()             // date of creation
-}
-```
-
-
 **db.urls** - information about URLs
 
 ```js
