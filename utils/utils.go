@@ -15,7 +15,6 @@ import (
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
-    "github.com/z0rr0/luss/users"
 )
 
 const (
@@ -91,8 +90,6 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         err = errorGen("connection pool size should be greater than zero", "cache.dbpoolsize")
     case !cf.GoodSalts():
         err = errorGen(fmt.Sprintf("insecure salt value, min length is %v symbols", conf.SaltsLen), "listener.security.salt")
-    case cf.Listener.Security.DbKeys < 1:
-        err = errorGen("incorrect or empty value", "listener.security.dbkeys")
     case cf.Listener.Security.TokenLen < 1:
         err = errorGen("incorrect or empty value", "listener.security.tokenlen")
     }
@@ -118,9 +115,5 @@ func InitConfig(filename string, debug bool) error {
     }
     // common configuration
     Cfg = &Configuration{Conf: cf, Pool: pool, Logger: LoggerError}
-    err = checkDbConnection(Cfg.Conf)
-    if err != nil {
-        return err
-    }
-    return users.GetDbKeys(Cfg.Conf)
+    return checkDbConnection(Cfg.Conf)
 }

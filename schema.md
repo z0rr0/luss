@@ -12,6 +12,9 @@
   "role": "admin",                 // user's global role
   "created": ISODate()             // date of creation
 }
+
+db.users.ensureIndex({"name": 1}, {"unique": 1})
+db.users.ensureIndex({"token": 1, "role": 1})
 ```
 
 **db.keys** - application keys

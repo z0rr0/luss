@@ -5,11 +5,13 @@
 
 # Options
 # -r - review only, withot tests running
+# -b - run beckmarks
 
 GOBIN="`which go`"
 PACKAGE="github.com/z0rr0/luss"
 REVIEW=""
 LOCALGOPATH="$GOPATH"
+BENCH=""
 
 if [[ -n "$WINDIR" ]]; then
     # replace LOCALGOPATH
@@ -23,11 +25,13 @@ BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
 "test" \
+"users" \
 "db" \
 "conf" \
 )
 
 PACKAGES_CHECK=( \
+"users" \
 "test" \
 "conf" \
 "db" \
@@ -42,10 +46,13 @@ if [ ! -x "$GOBIN" ]; then
     exit 2
 fi
 
-while getopts ":r" opt; do
+while getopts ":rb" opt; do
     case $opt in
         r)
             REVIEW="yes"
+            ;;
+        b)
+            BENCH="-bench=. -benchmem"
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -85,7 +92,7 @@ fi
 for p in ${PACKAGES_TEST[@]}; do
     # run tests
     cd ${REPO}/$p
-    $GOBIN test -v -cover -coverprofile=coverage.out -trace trace.out || exit 4
+    $GOBIN test -v -cover -coverprofile=coverage.out -trace trace.out $BENCH || exit 4
 done
 
 echo "all tests done, use next command to view profiling results:"

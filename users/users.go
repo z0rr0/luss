@@ -6,23 +6,26 @@
 package users
 
 import (
+    "bytes"
+    "crypto/rand"
     "encoding/hex"
-    "fmt"
+    "errors"
     "log"
-    "math/rand"
     "os"
     "time"
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "golang.org/x/crypto/sha3"
-    "gopkg.in/mgo.v2"
+    // "gopkg.in/mgo.v2"
     "gopkg.in/mgo.v2/bson"
 )
 
 const (
     // dbKeyLen is the size, in bytes, of a SHA3 Shake256 checksum.
     dbKeyLen = 64
+    // maxUserNameLen is maximum length of user name
+    maxUserNameLen = 256
 )
 
 var (
@@ -44,10 +47,11 @@ type User struct {
     Token   string        `bson:"token"`
     Role    string        `bson:"role"`
     Created time.Time     `bson:"created"`
+    Secret  string
 }
 
 // Refresh reads user info from database using a filter by the name.
-func (u *User) Refresh() error {
+func (u *User) Refresh(c *conf.Config) error {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
@@ -57,140 +61,92 @@ func (u *User) Refresh() error {
     return collection.Find(bson.M{"name": u.Name}).One(u)
 }
 
-// createDbKey creates a new db key.
-func createDbKey(col *mgo.Collection) error {
-    const rlim int64 = 10000000000000
-    ts := time.Now().UnixNano()
-    rand.Seed(ts)
-    h := make([]byte, dbKeyLen)
-    sha3.ShakeSum256(h, []byte(fmt.Sprintf("%x%x", rand.Int63n(rlim), ts)))
-    return col.Insert(bson.M{"value": hex.EncodeToString(h), "created": time.Now().UTC()})
+// GenRndBytes generates random bytes.
+func GenRndBytes(n int) ([]byte, error) {
+    b := make([]byte, n)
+    _, err := rand.Read(b)
+    return b, err
 }
 
-// removeDbKeys removes all db keys. This should be used only for the tests.
-func removeDbKeys(conn *db.Conn) error {
-    collection := conn.C("keys")
-    _, err := collection.RemoveAll(bson.M{})
-    return err
-}
-
-// validateDbKeys checks that db keys exist.
-func validateDbKeys(col *mgo.Collection, limit int) error {
-    n, err := col.Count()
-    if err != nil {
-        return err
-    }
-    Logger.Printf("%v db keys were created", (limit - n))
-    for i := 0; i < (limit - n); i++ {
-        insErr := createDbKey(col)
-        if insErr != nil {
-            return insErr
-        }
-    }
-    return nil
-}
-
-// GetDbKeys returns db keys map [key:value] and/or create new one if it is needed.
-func GetDbKeys(c *conf.Config) error {
+// DeleteUser deletes user by his name.
+func DeleteUser(name string, c *conf.Config) error {
     conn, err := db.GetConn(c)
-    if err != nil {
-        return err
-    }
     defer db.ReleaseConn(conn)
-    collection := conn.C("keys")
-    err = validateDbKeys(collection, c.Listener.Security.DbKeys)
     if err != nil {
         return err
     }
-    dbkeys := []*DbKey{}
-    iter := collection.Find(bson.M{}).Iter()
-    err = iter.All(&dbkeys)
-    if err != nil {
-        return err
-    }
-    n := len(dbkeys)
-    c.Db.DbAppKeys, c.Db.DbAppValues = make([]string, n), make(map[string]string, n)
-    for i := range dbkeys {
-        c.Db.DbAppKeys[i] = dbkeys[i].ID.Hex()
-        c.Db.DbAppValues[c.Db.DbAppKeys[i]] = dbkeys[i].Value
-    }
-    return nil
+    collection := conn.C("users")
+    return collection.Remove(bson.M{"name": name})
 }
 
-// CreateUser creates new User's token.
+// CreateUser creates new User.
 func CreateUser(name, role string, c *conf.Config) (*User, error) {
+    if len(name) > maxUserNameLen {
+        return nil, errors.New("too long user's name")
+    }
     conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
     if err != nil {
         return nil, err
     }
-    defer db.ReleaseConn(conn)
     collection := conn.C("users")
     if role == "" {
         role = "user"
+    }
+    p1, p2, tErr := genToken(c)
+    if tErr != nil {
+        return nil, tErr
     }
     _, err = collection.Upsert(bson.M{"name": name},
         bson.M{
             "name":    name,
             "role":    role,
-            "token":   genToken(),
+            "token":   p2,
             "created": time.Now().UTC(),
         },
     )
     if err != nil {
         return nil, err
     }
-    u := &User{}
-    err = u.Refresh()
+    u := &User{Name: name}
+    err = u.Refresh(c)
+    u.Secret = p1 + p2
     return u, err
 }
 
 // genToken generates new user's token.
-// key(24)+rnd(16)+hash()
-// ToDo
-func genToken(c *conf.Config) string {
-    const rlim int64 = 2147483646
-    ts := time.Now().UnixNano()
-    rand.Seed(ts)
-    idx := rand.Intn(len(c.Db.DbAppKeys))
-    r := fmt.Sprintf("%x%x", ts, rand.Int63n(rlim))
+// It looks as [username+password], and it is not very secrete, but quickly.
+func genToken(c *conf.Config) (string, string, error) {
+    rndB, err := GenRndBytes(c.Listener.Security.TokenLen)
+    if err != nil {
+        return "", "", err
+    }
     h := make([]byte, c.Listener.Security.TokenLen)
-
     d := sha3.NewShake256()
-    d.Write([]byte(c.Db.DbAppValues[c.Db.DbAppKeys[idx]]))
     d.Write([]byte(c.Listener.Security.Salt))
-    d.Write([]byte(r))
+    d.Write(rndB)
     d.Read(h)
-    // key(24)+hash(c.Listener.Security.TokenLen)+rnd
-    token := fmt.Sprintf("%v%v%v", c.Db.DbAppKeys[idx], hex.EncodeToString(h), r)
-    return token
+    // token=rnd[32]+hash(rnd+salt)[32]
+    return hex.EncodeToString(rndB), hex.EncodeToString(h), nil
 }
 
-// // TokenGen is 24+tokenLen
-// func TokenGen(value string, c *conf.Config) string {
-//     h := make([]byte, c.Listener.Security.TokenLen)
-//     d := sha3.NewShake256()
-//     d.Write([]byte(c.Listener.Security.Salt))
-//     d.Write([]byte(value))
-//     d.Read(h)
-//     return hex.EncodeToString(h)
-// }
-
-// func PwdGen(username string, c *conf.Config) string {
-//     value := fmt.Sprintf("%v%v", username, c.Listener.Salts[0])
-//     pHash := pbkdf2.Key([]byte(value), []byte(c.Listener.Salts[1]), pwIters, Size256, sha3.New256)
-//     return hex.EncodeToString(pHash)
-// }
-
-// // PwdHash generates a password hash.
-// func PwdHash(username, password string, c *conf.Config) string {
-//     value := fmt.Sprintf("%v%v%v", username, password, c.Listener.Salts[0])
-//     pHash := pbkdf2.Key([]byte(value), []byte(c.Listener.Salts[1]), pwIters, Size512, sha3.New512)
-//     return hex.EncodeToString(pHash)
-// }
-
-// func NewToken(c *conf.Config) string {
-//     rand.Seed(time.Now().UnixNano())
-//     h := make([]byte, 32)
-//     d := NewShake256()
-
-// }
+// CheckToken verifies incoming token, checks length and hash.
+func CheckToken(token string, c *conf.Config) error {
+    if len(token) == 0 {
+        return errors.New("empty token value")
+    }
+    tokenB, err := hex.DecodeString(token)
+    if err != nil {
+        return err
+    }
+    n := len(tokenB)
+    h := make([]byte, n/2)
+    d := sha3.NewShake256()
+    d.Write([]byte(c.Listener.Security.Salt))
+    d.Write(tokenB[:n/2])
+    d.Read(h)
+    if !bytes.Equal(h, tokenB[n/2:n]) {
+        return errors.New("invalid token")
+    }
+    return nil
+}

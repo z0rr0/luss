@@ -5,8 +5,8 @@
     "timeout": 30,                // HTTP server timeout
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
-      "dbkeys": 8,                //   number of database keys
-      "tokenlen": 40              //   token length in bytes (total=2*tokenlen+40)
+      "tokenlen": 16,             //   token length in bytes
+      "admininit": "abc"          //   amdin init secrete part
     }
   },
   "database": {                   // MongoDB configuration:

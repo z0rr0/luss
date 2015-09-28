@@ -26,7 +26,6 @@ const (
 // security contains main security settings.
 type security struct {
     Salt     string `json:"salt"`
-    DbKeys   int    `json:"dbkeys"`
     TokenLen int    `json:"tokenlen"`
 }
 
@@ -55,8 +54,6 @@ type MongoCfg struct {
     RcnTime     int64    `json:"rcntime"`
     Debug       bool     `json:"debug"`
     RcnDelay    time.Duration
-    DbAppKeys   []string
-    DbAppValues map[string]string
     ConChan     chan hashq.Shared
     MongoCred   *mgo.DialInfo
     Logger      *log.Logger
