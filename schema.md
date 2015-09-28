@@ -2,6 +2,29 @@
 
 ### Users
 
+**db.users** - information about users
+
+```js
+{
+  "_id": ObjectId(),               // user's ID
+  "name": "username",              // user's name (max 256)
+  "token": "123abc",               // user's secrete key (max 512)
+  "role": "admin",                 // user's global role
+  "created": ISODate()             // date of creation
+}
+```
+
+**db.keys** - application keys
+
+```js
+{
+  "_id": ObjectId(),               // item's ID
+  "value": "some key value",       // secrete app key
+  "created": ISODate()             // date of creation
+}
+```
+
+
 **db.urls** - information about URLs
 
 ```js
@@ -21,7 +44,7 @@
 
 ```js
 {
-  "_id": ObjectID(),               // record ID
+  "_id": ObjectId(),               // record ID
   "name": "Project1"               // project's name
   "domain": "http://somename.com", // custom domain
   "users": [                       // info about users

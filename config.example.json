@@ -7,7 +7,7 @@
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
       "dbkeys": 8,                //   number of database keys
       "tokenlen": 40              //   token length in bytes (total=2*tokenlen+40)
-    },
+    }
   },
   "database": {                   // MongoDB configuration:
     "hosts": ["localhost"],       //   servers list

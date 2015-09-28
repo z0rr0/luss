@@ -15,6 +15,7 @@ import (
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/users"
 )
 
 const (
@@ -95,11 +96,11 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     case cf.Listener.Security.TokenLen < 1:
         err = errorGen("incorrect or empty value", "listener.security.tokenlen")
     }
-
     if err != nil {
         return nil, err
     }
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
+    cf.Db.Logger = LoggerError
     return cf, nil
 }
 
@@ -121,5 +122,5 @@ func InitConfig(filename string, debug bool) error {
     if err != nil {
         return err
     }
-    return nil
+    return users.GetDbKeys(Cfg.Conf)
 }

@@ -14,7 +14,6 @@ import (
     "syscall"
     "time"
 
-    "github.com/z0rr0/luss/users"
     "github.com/z0rr0/luss/utils"
 )
 
@@ -49,25 +48,9 @@ func main() {
     debug := flag.Bool("debug", false, "debug mode")
     version := flag.Bool("version", false, "show version")
     config := flag.String("config", Config, "configuration file")
-    pwdgen := flag.Bool("pwdgen", false, "generate user password")
     flag.Parse()
     if *version {
         fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
-        return
-    }
-    // only get user token
-    if *pwdgen {
-        username := flag.Arg(0)
-        if username == "" {
-            utils.LoggerError.Println("username is not set")
-            return
-        }
-        cf, cerr := utils.InitFileConfig(*config, *debug)
-        if cerr != nil {
-            utils.LoggerError.Println(cerr)
-            return
-        }
-        fmt.Printf("token for user %v: %v\n", username, users.TokenGen(username, cf))
         return
     }
     // configuration initialization

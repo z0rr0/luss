@@ -7,7 +7,6 @@ package conf
 
 import (
     "encoding/json"
-    "errors"
     "fmt"
     "io/ioutil"
     "log"
@@ -27,8 +26,8 @@ const (
 // security contains main security settings.
 type security struct {
     Salt     string `json:"salt"`
-    DbKeys   uint   `json:"dbkeys"`
-    TokenLen uint   `json:"tokenlen"`
+    DbKeys   int    `json:"dbkeys"`
+    TokenLen int    `json:"tokenlen"`
 }
 
 // listener is HTTP server configuration
@@ -56,6 +55,8 @@ type MongoCfg struct {
     RcnTime     int64    `json:"rcntime"`
     Debug       bool     `json:"debug"`
     RcnDelay    time.Duration
+    DbAppKeys   []string
+    DbAppValues map[string]string
     ConChan     chan hashq.Shared
     MongoCred   *mgo.DialInfo
     Logger      *log.Logger
