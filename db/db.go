@@ -25,6 +25,8 @@ import (
 var (
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
+    // Colls is a map of db collections.
+    Colls = map[string]string{"test": "test", "users": "users"}
 )
 
 // Conn is database connection structure.
@@ -69,7 +71,7 @@ func (c *Conn) Open(cfg *conf.MongoCfg) (bool, error) {
         err   error
         isNew bool
     )
-    c.mutex.RLock()
+    c.lock()
     openOnce := func() {
         s, serr := MongoDBConnection(cfg)
         if serr != nil {
@@ -82,8 +84,15 @@ func (c *Conn) Open(cfg *conf.MongoCfg) (bool, error) {
     return isNew, err
 }
 
+func (c *Conn) lock() {
+    // Logger.Printf("call lock for %p", c)
+    c.mutex.RLock()
+    // Logger.Printf("locked  %p", c)
+}
+
 // release releases connection resource, but doesn't close.
 func (c *Conn) release() {
+    // Logger.Printf("call unlock for %p", c)
     c.mutex.RUnlock()
 }
 

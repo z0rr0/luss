@@ -11,6 +11,8 @@ import (
     "net/http"
     "os"
     "os/signal"
+    "regexp"
+    "strings"
     "syscall"
     "time"
 
@@ -37,6 +39,19 @@ func interrupt() error {
     c := make(chan os.Signal)
     signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
     return fmt.Errorf("%v", <-c)
+}
+
+// HandlerTest is a response for test request.
+func HandlerTest(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "%v: %v %v\n", Name, Version, Revision)
+    q := r.URL.Query()
+    if (q.Get("write") == "yes") && (utils.Mode == utils.DebugMode) {
+        if err := utils.TestWrite(); err != nil {
+            fmt.Fprintln(w, "data is not written")
+        } else {
+            fmt.Fprintln(w, "data is written")
+        }
+    }
 }
 
 func main() {
@@ -72,9 +87,35 @@ func main() {
         MaxHeaderBytes: 1 << 20,
         ErrorLog:       utils.LoggerError,
     }
+
+    isUrl := regexp.MustCompile("^/[0-9A-Za-z]+$")
+    handlers := map[string]func(w http.ResponseWriter, r *http.Request){
+        "/test": HandlerTest,
+    }
+
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        fmt.Fprintf(w, "%v running: version=%v [%v]\n Listen: %v", Name, Version, Revision, listener)
+        adm, url := "  ", strings.TrimRight(r.URL.Path, "/")
+        start, code := time.Now().UTC(), http.StatusOK
+        defer func() {
+            utils.LoggerInfo.Printf("%v  %v\t%v%v", code, time.Now().Sub(start), adm, url)
+        }()
+        // try to find service handler
+        f, ok := handlers[url]
+        if ok {
+            f(w, r)
+            adm = "a-"
+            return
+        }
+        if isUrl.MatchString(url) {
+            // fmt.Fprintln(w, "call url handler")
+            code = http.StatusFound
+            http.Redirect(w, r, "/", code)
+            return
+        }
+        code = http.StatusNotFound
+        http.NotFound(w, r)
     })
+
     // run server
     go func() {
         errc <- server.ListenAndServe()

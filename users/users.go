@@ -58,7 +58,7 @@ func (u *User) Refresh(c *conf.Config) error {
     if err != nil {
         return err
     }
-    collection := conn.C("users")
+    collection := conn.C(db.Colls["users"])
     return collection.Find(bson.M{"name": u.Name}).One(u)
 }
 
@@ -76,7 +76,7 @@ func DeleteUser(name string, c *conf.Config) error {
     if err != nil {
         return err
     }
-    collection := conn.C("users")
+    collection := conn.C(db.Colls["users"])
     return collection.Remove(bson.M{"name": name})
 }
 
@@ -90,7 +90,7 @@ func CreateUser(name, role string, c *conf.Config) (*User, error) {
     if err != nil {
         return nil, err
     }
-    collection := conn.C("users")
+    collection := conn.C(db.Colls["users"])
     if role == "" {
         role = "user"
     }
@@ -126,7 +126,7 @@ func CheckUser(token string, c *conf.Config) (*User, error) {
     if err != nil {
         return nil, err
     }
-    collection := conn.C("users")
+    collection := conn.C(db.Colls["users"])
     u := &User{}
     err = collection.Find(bson.M{"token": t}).One(u)
     if err == mgo.ErrNotFound {

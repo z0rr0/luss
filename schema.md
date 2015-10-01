@@ -10,6 +10,7 @@
   "name": "username",              // user's name (max 256)
   "token": "123abc",               // user's secrete key (max 512)
   "role": "admin",                 // user's global role
+  "modified": ISODate(),           // date of modification
   "created": ISODate()             // date of creation
 }
 
@@ -26,19 +27,40 @@ db.users.ensureIndex({"token": 1, "role": 1})
 }
 
 db.locks.ensureIndex({"_id": 1, "locked": 1}, {"unique": 1})
+db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 ```
+
+### URLs
 
 **db.urls** - information about URLs
 
 ```js
 {
   "_id": "short url",              // short URL
+  "active": true,                  // link is active
   "prj": "Project2",               // project's name
   "orig": "origin URL",            // origin URL
-  "req": 220,                      // requests' counter
-  "author": "User1",               // author of this link
-  "created": ISODate()             // date of creation
+  "u": "User1",                    // author of this link
+  "ttl": ISODate(),                // link's TTL
+  "ndr": false,                    // no direct redirect
+  "ts": ISODate()                  // date of creation
 }
+
+db.urls.ensureIndex({"_id": 1, "active": 1}, {"unique": 1})
+db.urls.ensureIndex({"prj": 1, "author": 1})
+```
+
+**db.ustats** - information about URLs statistics
+
+```js
+{
+  "_id": ObjectId(),                     // item ID
+  "url": "short url",                    // short URL
+  "day": ISODate("2014-08-13 00:00:00")  // date (daily around)
+  "c": 395                               // daily counter
+}
+
+db.urls.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 ```
 
 ### Projects

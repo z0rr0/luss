@@ -58,7 +58,7 @@ func TestInc(t *testing.T) {
             t.Errorf("incorrect values: %v != %v", i, v)
         }
     }
-    for i := 1; i < 1000000; i++ {
+    for i := 1; i < 100000; i++ {
         num := int64(i - 1)
         si := Encode(num)
         if s := Encode(num + 1); s != Inc(si) {

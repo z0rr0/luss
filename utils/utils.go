@@ -15,6 +15,7 @@ import (
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
+    "gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -72,6 +73,17 @@ func checkDbConnection(cfg *conf.Config) error {
     defer db.ReleaseConn(conn)
     LoggerInfo.Println("DB connection checked")
     return err
+}
+
+// TestWrite writes temporary data to the database.
+func TestWrite() error {
+    conn, err := db.GetConn(Cfg.Conf)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        return err
+    }
+    coll := conn.C(db.Colls["test"])
+    return coll.Insert(bson.M{"ts": time.Now()})
 }
 
 func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
