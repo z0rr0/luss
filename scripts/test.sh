@@ -28,6 +28,7 @@ PACKAGES_TEST=( \
 "users" \
 "db" \
 "conf" \
+"trim" \
 )
 
 PACKAGES_CHECK=( \
@@ -35,6 +36,7 @@ PACKAGES_CHECK=( \
 "test" \
 "conf" \
 "db" \
+"trim" \
 )
 
 if [ -z "$GOPATH" ]; then

@@ -8,7 +8,9 @@ package trim
 
 import (
     "fmt"
+    "log"
     "math"
+    "os"
     "sort"
     "time"
 
@@ -22,7 +24,9 @@ const (
 
 var (
     // basis is a numeral system basis
-    basis = int64(len(Alphabet))
+    basis = len(Alphabet)
+    // Logger is a logger for error messages
+    Logger = log.New(os.Stderr, "LOGGER [luss/trim]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // CustomURL stores info about user's URL.
@@ -35,6 +39,33 @@ type CustomURL struct {
     Num       int64
 }
 
+// Inc increments a number from Alphabet-base numeral system.
+func Inc(s string) string {
+    n := len(s)
+    if n == 0 {
+        return "0"
+    }
+    if s[n-1] == Alphabet[basis-1] {
+        if n == 1 {
+            return "10"
+        }
+        s = Inc(s[:n-1]) + "0"
+    } else {
+        i := sort.Search(basis, func(j int) bool { return Alphabet[j] >= s[n-1] })
+        if (i < basis) && (Alphabet[i] == s[n-1]) {
+            s = s[:n-1] + string(Alphabet[i+1])
+        } else {
+            Logger.Panicf("unexpected behavior: %q is not found in \"%v\"", s[n-1], Alphabet)
+        }
+    }
+    return s
+}
+
+// pow returns x**y, only uses int64 types instead float64.
+func pow(x, y int64) int64 {
+    return int64(math.Pow(float64(x), float64(y)))
+}
+
 // Encode converts a decimal number to Alphabet-base numeral system.
 func Encode(x int64) string {
     var result, sign string
@@ -44,10 +75,11 @@ func Encode(x int64) string {
     if x < 0 {
         sign, x = "-", -x
     }
+    b := int64(basis)
     for x > 0 {
-        i := int(x % basis)
+        i := int(x % b)
         result = string(Alphabet[i]) + result
-        x = x / basis
+        x = x / b
     }
     return sign + result
 }
@@ -67,23 +99,19 @@ func Decode(x string) (int64, error) {
         sign, x = true, x[1:l]
         l--
     }
+    b := int64(basis)
     for i := l - 1; i >= 0; i-- {
         c := x[i]
-        k := sort.Search(int(basis), func(t int) bool { return Alphabet[t] >= c })
+        k := sort.Search(basis, func(t int) bool { return Alphabet[t] >= c })
         p := int64(k)
-        if !((p < basis) && (Alphabet[k] == c)) {
+        if !((p < b) && (Alphabet[k] == c)) {
             return 0, fmt.Errorf("can't convert %q", c)
         }
-        result = result + p*pow(basis, j)
+        result = result + p*pow(b, j)
         j++
     }
     if sign {
         result = -result
     }
     return result, nil
-}
-
-// pow returns x**y, only uses int64 types instead float64.
-func pow(x, y int64) int64 {
-    return int64(math.Pow(float64(x), float64(y)))
 }

@@ -39,6 +39,27 @@ func TestEncode(t *testing.T) {
     }
 }
 
+func TestInc(t *testing.T) {
+    suite := map[string]string{
+        "":                   "0",
+        "1":                  "2",
+        "a":                  "b",
+        "A":                  "B",
+        "z":                  "10",
+        "11":                 "12",
+        "AZ":                 "Aa",
+        "Az":                 "B0",
+        "zz":                 "100",
+        "1zz":                "200",
+        "ABC123zzzzzzzzzzzz": "ABC124000000000000",
+    }
+    for k, v := range suite {
+        if i := Inc(k); i != v {
+            t.Errorf("incorrect values: %v != %v", i, v)
+        }
+    }
+}
+
 func BenchmarkEncode(b *testing.B) {
     // max 9223372036854775807 == AzL8n0Y58m7
     x := "AzL8n0Y58m7"
@@ -48,6 +69,31 @@ func BenchmarkEncode(b *testing.B) {
             b.Fatal(err)
         }
         if s := Encode(num); s != x {
+            b.Fatalf("bad result: %v %v", s, x)
+        }
+    }
+}
+
+// 2127 ns/op  176 B/op
+func BenchmarkInc1(b *testing.B) {
+    x, y := "Ayzzzzzzzzz", "Az000000000"
+    for i := 0; i < b.N; i++ {
+        num, err := Decode(x)
+        if err != nil {
+            b.Fatal(err)
+        }
+        num = num + 1
+        if s := Encode(num); s != y {
+            b.Fatalf("bad result: %v %v", s, x)
+        }
+    }
+}
+
+// 876 ns/op  160 B/op
+func BenchmarkInc2(b *testing.B) {
+    x, y := "Ayzzzzzzzzz", "Az000000000"
+    for i := 0; i < b.N; i++ {
+        if s := Inc(x); s != y {
             b.Fatalf("bad result: %v %v", s, x)
         }
     }

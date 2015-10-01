@@ -17,6 +17,17 @@ db.users.ensureIndex({"name": 1}, {"unique": 1})
 db.users.ensureIndex({"token": 1, "role": 1})
 ```
 
+**db.locks** - collection to control common locks
+
+```js
+{
+  "_id": "urls",                   // locked collection
+  "locked": false                  // mutex flag
+}
+
+db.locks.ensureIndex({"_id": 1, "locked": 1}, {"unique": 1})
+```
+
 **db.urls** - information about URLs
 
 ```js
@@ -38,7 +49,7 @@ db.users.ensureIndex({"token": 1, "role": 1})
 {
   "_id": ObjectId(),               // record ID
   "name": "Project1"               // project's name
-  "domain": "http://somename.com", // custom domain
+  "domain": "http://domain.com",   // custom domain
   "users": [                       // info about users
     {
       "user": "User1",             // user's name
@@ -55,10 +66,10 @@ db.users.ensureIndex({"token": 1, "role": 1})
     {
       "method": "GET",             // request type
       "url": "http//callback.com", // callback url
-      "param": {}                  // custom parameters
+      "params": {"a": 123}         // custom parameters
     },
   ],
-  "modified": ISODate(),            // date of modification
+  "modified": ISODate(),           // date of modification
   "created": ISODate()             // date of creation
 }
 ```

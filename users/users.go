@@ -17,7 +17,7 @@ import (
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "golang.org/x/crypto/sha3"
-    // "gopkg.in/mgo.v2"
+    "gopkg.in/mgo.v2"
     "gopkg.in/mgo.v2/bson"
 )
 
@@ -42,12 +42,13 @@ type DbKey struct {
 
 // User is user's information.
 type User struct {
-    ID      bson.ObjectId `bson:"_id"`
-    Name    string        `bson:"name"`
-    Token   string        `bson:"token"`
-    Role    string        `bson:"role"`
-    Created time.Time     `bson:"created"`
-    Secret  string
+    ID        bson.ObjectId `bson:"_id"`
+    Name      string        `bson:"name"`
+    Token     string        `bson:"token"`
+    Role      string        `bson:"role"`
+    Created   time.Time     `bson:"created"`
+    Anonymous bool
+    Secret    string
 }
 
 // Refresh reads user info from database using a filter by the name.
@@ -114,6 +115,27 @@ func CreateUser(name, role string, c *conf.Config) (*User, error) {
     return u, err
 }
 
+// CheckUser verifies a token and returns the appropriate User.
+func CheckUser(token string, c *conf.Config) (*User, error) {
+    t, err := CheckToken(token, c)
+    if err != nil {
+        return nil, err
+    }
+    conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        return nil, err
+    }
+    collection := conn.C("users")
+    u := &User{}
+    err = collection.Find(bson.M{"token": t}).One(u)
+    if err == mgo.ErrNotFound {
+        u.Anonymous = true
+        err = nil
+    }
+    return u, err
+}
+
 // genToken generates new user's token.
 // It looks as [username+password], and it is not very secrete, but quickly.
 func genToken(c *conf.Config) (string, string, error) {
@@ -131,13 +153,14 @@ func genToken(c *conf.Config) (string, string, error) {
 }
 
 // CheckToken verifies incoming token, checks length and hash.
-func CheckToken(token string, c *conf.Config) error {
-    if len(token) == 0 {
-        return errors.New("empty token value")
+func CheckToken(token string, c *conf.Config) (string, error) {
+    l := len(token)
+    if l == 0 {
+        return "", errors.New("empty token value")
     }
     fullToken, err := hex.DecodeString(token)
     if err != nil {
-        return err
+        return "", err
     }
     n := len(fullToken)
     h := make([]byte, n/2)
@@ -146,7 +169,7 @@ func CheckToken(token string, c *conf.Config) error {
     d.Write(fullToken[:n/2])
     d.Read(h)
     if !bytes.Equal(h, fullToken[n/2:n]) {
-        return errors.New("invalid token")
+        return "", errors.New("invalid token")
     }
-    return nil
+    return token[l/2 : l], nil
 }
