@@ -58,6 +58,13 @@ func TestInc(t *testing.T) {
             t.Errorf("incorrect values: %v != %v", i, v)
         }
     }
+    for i := 1; i < 1000000; i++ {
+        num := int64(i - 1)
+        si := Encode(num)
+        if s := Encode(num + 1); s != Inc(si) {
+            t.Errorf("bad result: %v %v", s, Inc(si))
+        }
+    }
 }
 
 func BenchmarkEncode(b *testing.B) {

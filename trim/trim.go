@@ -94,8 +94,7 @@ func Decode(x string) (int64, error) {
     if l == 0 {
         return 0, nil
     }
-    // the first character is '-'
-    if x[0] == 0x2D {
+    if x[0] == '-' {
         sign, x = true, x[1:l]
         l--
     }
