@@ -137,7 +137,8 @@ func CheckUser(token string, c *conf.Config) (*User, error) {
 }
 
 // genToken generates new user's token.
-// It looks as [username+password], and it is not very secrete, but quickly.
+// It looks as trapdoor function: token=R+Hash(R+S), where S is a secret salt.
+// This method is not very secure, but it's quick.
 func genToken(c *conf.Config) (string, string, error) {
     r, err := GenRndBytes(c.Listener.Security.TokenLen)
     if err != nil {
