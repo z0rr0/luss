@@ -28,6 +28,6 @@
   "cache": {                      // cache settings
     "dbpoolsize": 2,              // size of database connections pool
     "dbpoolttl": 10,              // period between pool clean (seconds)
-    "debug": true                 // turn on connections pool debug
+    "debug": false                // turn on connections pool debug
   }
 }

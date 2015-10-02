@@ -16,6 +16,8 @@ import (
     "syscall"
     "time"
 
+    "github.com/z0rr0/luss/httph"
+    "github.com/z0rr0/luss/trim"
     "github.com/z0rr0/luss/utils"
 )
 
@@ -42,16 +44,17 @@ func interrupt() error {
 }
 
 // HandlerTest is a response for test request.
-func HandlerTest(w http.ResponseWriter, r *http.Request) {
+func HandlerTest(w http.ResponseWriter, r *http.Request) (int, string) {
     fmt.Fprintf(w, "%v: %v %v\n", Name, Version, Revision)
     q := r.URL.Query()
     if (q.Get("write") == "yes") && (utils.Mode == utils.DebugMode) {
-        if err := utils.TestWrite(); err != nil {
+        if err := httph.TestWrite(utils.Cfg.Conf); err != nil {
             fmt.Fprintln(w, "data is not written")
         } else {
             fmt.Fprintln(w, "data is written")
         }
     }
+    return http.StatusOK, ""
 }
 
 func main() {
@@ -88,9 +91,13 @@ func main() {
         ErrorLog:       utils.LoggerError,
     }
 
-    isUrl := regexp.MustCompile("^/[0-9A-Za-z]+$")
-    handlers := map[string]func(w http.ResponseWriter, r *http.Request){
-        "/test": HandlerTest,
+    isUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]+$", trim.Alphabet))
+    handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
+        "/test/t":   HandlerTest,
+        "/link/add": httph.HandlerAddLink,
+        // "/user/add"
+        // "/user/edit"
+        // "/user/del"
     }
 
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -102,8 +109,11 @@ func main() {
         // try to find service handler
         f, ok := handlers[url]
         if ok {
-            f(w, r)
-            adm = "a-"
+            s, msg := f(w, r)
+            if s != http.StatusOK {
+                http.Error(w, msg, s)
+            }
+            adm, code = "a-", s
             return
         }
         if isUrl.MatchString(url) {

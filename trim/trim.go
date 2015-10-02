@@ -14,7 +14,7 @@ import (
     "sort"
     "time"
 
-    // "gopkg.in/mgo.v2/bson"
+    "golang.org/x/net/idna"
 )
 
 const (
@@ -31,12 +31,20 @@ var (
 
 // CustomURL stores info about user's URL.
 type CustomURL struct {
-    Short     string    `bson:"_id"`
-    Project   string    `bson:"project"`
-    OriginURL string    `bson:"origin"`
-    TTL       time.Time `bson:"ttl"`
-    Spam      float64   `bson:"spam"`
-    Num       int64
+    Short     string     `bson:"_id"`
+    Project   string     `bson:"project"`
+    OriginURL string     `bson:"origin"`
+    TTL       *time.Time `bson:"ttl"`
+    Spam      float64    `bson:"spam"`
+}
+
+func ToShort(url string) (*CustomURL, error) {
+    s, err := idna.ToASCII(url)
+    if err != nil {
+        return nil, err
+    }
+    c := &CustomURL{Short: s, Project: "default", OriginURL: url, TTL: nil, Spam: 0}
+    return c, nil
 }
 
 // Inc increments a number from Alphabet-base numeral system.
