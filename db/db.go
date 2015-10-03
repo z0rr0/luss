@@ -26,7 +26,7 @@ var (
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
     // Colls is a map of db collections.
-    Colls = map[string]string{"test": "test", "users": "users"}
+    Colls = map[string]string{"test": "test", "users": "users", "urls": "urls", "locks": "locks"}
 )
 
 // Conn is database connection structure.

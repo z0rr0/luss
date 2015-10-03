@@ -14,7 +14,10 @@ import (
     "sort"
     "time"
 
-    "golang.org/x/net/idna"
+    "github.com/z0rr0/luss/conf"
+    "github.com/z0rr0/luss/db"
+    "gopkg.in/mgo.v2"
+    "gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -32,19 +35,86 @@ var (
 // CustomURL stores info about user's URL.
 type CustomURL struct {
     Short     string     `bson:"_id"`
-    Project   string     `bson:"project"`
-    OriginURL string     `bson:"origin"`
+    Active    bool       `bson:"active"`
+    Project   string     `bson:"prj"`
+    Original  string     `bson:"orig"`
+    User      string     `bson:"u"`
     TTL       *time.Time `bson:"ttl"`
+    NotDirect bool       `bson:"ndr"`
     Spam      float64    `bson:"spam"`
+    Created   time.Time  `bson:"ts"`
 }
 
-func ToShort(url string) (*CustomURL, error) {
-    s, err := idna.ToASCII(url)
+// LockColls adds a lock recored to name-collection
+func LockColls(name string, conn *db.Conn) error {
+    const maxAttempts = 3
+    delay := time.Duration(10 * time.Millisecond)
+    coll := conn.C(db.Colls["locks"])
+    for i := 0; i < maxAttempts; i++ {
+        _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
+        if err == nil {
+            return nil
+        }
+        time.Sleep(time.Duration(i+1) * delay)
+    }
+    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", db.Colls["locks"], maxAttempts)
+}
+
+// UnlockColls removes a lock recored from name-collection.
+func UnlockColls(name string, conn *db.Conn) error {
+    coll := conn.C(db.Colls["locks"])
+    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"locked": false})
+}
+
+// String returns a representative form of CustomURL.
+func (c *CustomURL) String() string {
+    return fmt.Sprintf("%s => %s", c.Short, c.Original)
+}
+
+func FindShort(url string, c *conf.Config) (*CustomURL, error) {
+    conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
     if err != nil {
         return nil, err
     }
-    c := &CustomURL{Short: s, Project: "default", OriginURL: url, TTL: nil, Spam: 0}
-    return c, nil
+    coll := conn.C(db.Colls["urls"])
+    cu := &CustomURL{}
+    err = coll.FindId(url).One(cu)
+    return cu, err
+}
+
+// GetShort returns a new short URL.
+func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*CustomURL, error) {
+    conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        return nil, err
+    }
+    coll := conn.C(db.Colls["urls"])
+    // lock
+    err = LockColls("urls", conn)
+    if err != nil {
+        return nil, err
+    }
+    defer UnlockColls("urls", conn)
+    short, err := getMax(coll)
+    if err != nil {
+        return nil, err
+    }
+    cu := &CustomURL{Short: short, Active: true, Project: project, Original: url, User: user, TTL: ttl, NotDirect: false, Spam: 0, Created: time.Now().UTC()}
+    return cu, coll.Insert(cu)
+}
+
+func getMax(coll *mgo.Collection) (string, error) {
+    maxURL := &CustomURL{}
+    err := coll.Find(nil).Sort("-_id").Limit(1).One(maxURL)
+    if err != nil {
+        if err == mgo.ErrNotFound {
+            return "1", nil
+        }
+        return "", err
+    }
+    return Inc(maxURL.Short), nil
 }
 
 // Inc increments a number from Alphabet-base numeral system.

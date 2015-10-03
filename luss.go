@@ -118,9 +118,12 @@ func main() {
         }
         if isUrl.MatchString(url) {
             // fmt.Fprintln(w, "call url handler")
-            code = http.StatusFound
-            http.Redirect(w, r, "/", code)
-            return
+            link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
+            if err == nil {
+                code = http.StatusFound
+                http.Redirect(w, r, link, code)
+                return
+            }
         }
         code = http.StatusNotFound
         http.NotFound(w, r)

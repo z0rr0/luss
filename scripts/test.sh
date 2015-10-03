@@ -37,6 +37,7 @@ PACKAGES_CHECK=( \
 "conf" \
 "db" \
 "trim" \
+"httph" \
 )
 
 if [ -z "$GOPATH" ]; then

@@ -23,10 +23,11 @@ db.users.ensureIndex({"token": 1, "role": 1})
 ```js
 {
   "_id": "urls",                   // locked collection
-  "locked": false                  // mutex flag
+  "locked": false,                 // mutex flag
+  "pid": "host-pid"                // some program's identifier
 }
 
-db.locks.ensureIndex({"_id": 1, "locked": 1}, {"unique": 1})
+//db.locks.ensureIndex({"_id": 1, "locked": 1}, {"unique": 1})
 db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 ```
 
@@ -43,11 +44,12 @@ db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
   "u": "User1",                    // author of this link
   "ttl": ISODate(),                // link's TTL
   "ndr": false,                    // no direct redirect
+  "spam": 0.5,                     // smap coefficient
   "ts": ISODate()                  // date of creation
 }
 
 db.urls.ensureIndex({"_id": 1, "active": 1}, {"unique": 1})
-db.urls.ensureIndex({"prj": 1, "author": 1})
+db.urls.ensureIndex({"prj": 1, "u": 1})
 ```
 
 **db.ustats** - information about URLs statistics

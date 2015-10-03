@@ -6,6 +6,7 @@
 package httph
 
 import (
+    "errors"
     "fmt"
     "net/http"
     "net/url"
@@ -13,6 +14,7 @@ import (
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/trim"
     "github.com/z0rr0/luss/utils"
     "golang.org/x/net/idna"
     "gopkg.in/mgo.v2/bson"
@@ -38,6 +40,7 @@ func TestWrite(c *conf.Config) error {
     return coll.Insert(bson.M{"ts": time.Now()})
 }
 
+// HandlerAddLink adds returns a new save short link.
 func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
@@ -52,6 +55,8 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
         utils.LoggerDebug.Println(err)
         return http.StatusBadRequest, "bad request - invalid URL"
     }
+    // TODO: authentication
+    project, user := "default", "anonymous"
     // ascii raw URL
     host, err := idna.ToASCII(url.Host)
     if err != nil {
@@ -59,7 +64,26 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
         return http.StatusBadRequest, "bad request - bad domain"
     }
     url.Host = host
-    utils.LoggerDebug.Printf("passed %v", url)
-    fmt.Fprintln(w, url.String())
+    // incomming URL is Ok, try to trim and save
+    short, err := trim.GetShort(url.String(), user, project, nil, utils.Cfg.Conf)
+    if err != nil {
+        return http.StatusInternalServerError, "internal error"
+    }
+    // log
+    utils.LoggerDebug.Println("passed:", short.String())
+    fmt.Fprintln(w, short.Short)
     return http.StatusOK, ""
+}
+
+// HandlerRedirect searches already save short link and returns it.
+func HandlerRedirect(short string, r *http.Request) (string, error) {
+    if r.Method != "GET" {
+        return "", errors.New("method not allowed")
+    }
+    cu, err := trim.FindShort(short, utils.Cfg.Conf)
+    if err != nil {
+        utils.LoggerDebug.Printf("invalid short link: %v", short)
+        return "", err
+    }
+    return cu.Original, nil
 }
