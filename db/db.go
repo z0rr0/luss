@@ -26,7 +26,7 @@ var (
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
     // Colls is a map of db collections.
-    Colls = map[string]string{"test": "test", "users": "users", "urls": "urls", "locks": "locks"}
+    Colls = map[string]string{"test": "test", "users": "users", "urls": "urls", "locks": "locks", "ustats": "ustats"}
 )
 
 // Conn is database connection structure.
@@ -227,4 +227,20 @@ func NewConnPool(cfg *conf.Config) (*hashq.HashQ, error) {
     go pool.Monitor(time.Duration(cfg.Cache.DbPoolTTL) * time.Second)
     cfg.Db.ConChan = ch
     return pool, nil
+}
+
+// CleanCollection removes all data from db collection.
+func CleanCollection(c *conf.Config, names ...string) error {
+    conn, err := GetConn(c)
+    defer ReleaseConn(conn)
+    if err != nil {
+        return err
+    }
+    for _, name := range names {
+        if err == nil {
+            coll := conn.C(name)
+            _, err = coll.RemoveAll(nil)
+        }
+    }
+    return err
 }

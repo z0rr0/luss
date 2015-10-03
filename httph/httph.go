@@ -85,5 +85,6 @@ func HandlerRedirect(short string, r *http.Request) (string, error) {
         utils.LoggerDebug.Printf("invalid short link: %v", short)
         return "", err
     }
+    go cu.Stat(utils.Cfg.Conf)
     return cu.Original, nil
 }

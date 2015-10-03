@@ -8,9 +8,11 @@ package trim
 
 import (
     "testing"
-)
 
-// 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+    "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/test"
+    "github.com/z0rr0/luss/utils"
+)
 
 func TestEncode(t *testing.T) {
     suite := map[int64]string{
@@ -64,6 +66,69 @@ func TestInc(t *testing.T) {
         if s := Encode(num + 1); s != Inc(si) {
             t.Errorf("bad result: %v %v", s, Inc(si))
         }
+    }
+}
+
+func TestGetShort(t *testing.T) {
+    const (
+        longURL = "http://mydomain.com"
+        user    = "anonymous"
+        project = "default"
+    )
+    err := utils.InitConfig(test.TcConfigName(), true)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    cfg := utils.Cfg
+    cu, err := GetShort(longURL, user, project, nil, cfg.Conf)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    if (cu.Original != longURL) || (cu.String() == "") {
+        t.Errorf("incorrect behavior")
+    }
+    err = db.CleanCollection(cfg.Conf, db.Colls["urls"])
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+    }
+}
+
+func TestFindShort(t *testing.T) {
+    const (
+        longURL = "http://mydomain.com"
+        user    = "anonymous"
+        project = "default"
+    )
+    err := utils.InitConfig(test.TcConfigName(), true)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    cfg := utils.Cfg
+    clean := func() error {
+        colls := []string{db.Colls["urls"], db.Colls["ustats"]}
+        return db.CleanCollection(cfg.Conf, colls...)
+    }
+    err = clean()
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    defer clean()
+    cu1, err := GetShort(longURL, user, project, nil, cfg.Conf)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    cu2, err := FindShort(cu1.Short, cfg.Conf)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    if err := cu2.Stat(cfg.Conf); err != nil {
+        t.Errorf("invalid: %v", err)
     }
 }
 

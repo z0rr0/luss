@@ -29,5 +29,16 @@ func TestParseConfig(t *testing.T) {
     if len(cfg.Db.Addrs()) == 0 {
         t.Errorf("incorrect behavior")
     }
-
+    // salt test
+    if !cfg.GoodSalts() {
+        t.Errorf("incorrect behavior")
+    }
+    // conn cap
+    values := map[int]int{2: 2, 70: 16, 500: 32}
+    for k, v := range values {
+        cfg.Cache.DbPoolSize = k
+        if c := cfg.ConnCap(); c != v {
+            t.Errorf("invalid: %v != %v", c, v)
+        }
+    }
 }

@@ -24,10 +24,8 @@ db.users.ensureIndex({"token": 1, "role": 1})
 {
   "_id": "urls",                   // locked collection
   "locked": false,                 // mutex flag
-  "pid": "host-pid"                // some program's identifier
 }
 
-//db.locks.ensureIndex({"_id": 1, "locked": 1}, {"unique": 1})
 db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 ```
 
@@ -62,7 +60,7 @@ db.urls.ensureIndex({"prj": 1, "u": 1})
   "c": 395                               // daily counter
 }
 
-db.urls.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
+db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 ```
 
 ### Projects

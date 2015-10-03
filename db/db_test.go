@@ -7,7 +7,6 @@ package db
 
 import (
     "testing"
-    // "time"
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/test"
@@ -57,5 +56,9 @@ func TestNewConnPool(t *testing.T) {
     defer ReleaseConn(conn)
     if conn.Session == nil {
         t.Errorf("incorrect behavior")
+    }
+    err = CleanCollection(cfg, "test")
+    if err != nil {
+        t.Errorf("invalid: %v", err)
     }
 }

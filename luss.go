@@ -95,25 +95,26 @@ func main() {
     handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
         "/test/t":   HandlerTest,
         "/link/add": httph.HandlerAddLink,
-        // "/user/add"
-        // "/user/edit"
-        // "/user/del"
+        // "/p/add" - POST name+email -> confrim+admin
+        // "/p/edit" - PUT users+roles
+        // "/p/del" - DELETE del+remove links?
+        // "/p/stat" - GET stats: day1-day2
     }
 
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-        adm, url := "  ", strings.TrimRight(r.URL.Path, "/")
+        url := strings.TrimRight(r.URL.Path, "/")
         start, code := time.Now().UTC(), http.StatusOK
         defer func() {
-            utils.LoggerInfo.Printf("%v  %v\t%v%v", code, time.Now().Sub(start), adm, url)
+            utils.LoggerInfo.Printf("%v  %v\t%v", code, time.Now().Sub(start), url)
         }()
         // try to find service handler
         f, ok := handlers[url]
         if ok {
-            s, msg := f(w, r)
-            if s != http.StatusOK {
-                http.Error(w, msg, s)
+            code, msg := f(w, r)
+            if code != http.StatusOK {
+                http.Error(w, msg, code)
             }
-            adm, code = "a-", s
+            // code = s
             return
         }
         if isUrl.MatchString(url) {

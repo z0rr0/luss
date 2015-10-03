@@ -71,6 +71,25 @@ func (c *CustomURL) String() string {
     return fmt.Sprintf("%s => %s", c.Short, c.Original)
 }
 
+// Stat updates statistics about CustomURL usage.
+func (c *CustomURL) Stat(conf *conf.Config) error {
+    conn, err := db.GetConn(conf)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        Logger.Printf("can't update statistics: %v", err)
+        return err
+    }
+    coll := conn.C(db.Colls["ustats"])
+    y, m, d := time.Now().UTC().Date()
+    day := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+    _, err = coll.Upsert(bson.M{"url": c.Short, "day": day}, bson.M{"$inc": bson.M{"c": 1}})
+    if err != nil {
+        Logger.Printf("can't update statistics: %v", err)
+    }
+    return err
+}
+
+// FindShort checks that url exists and returns it.
 func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
@@ -105,12 +124,14 @@ func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*Custo
     return cu, coll.Insert(cu)
 }
 
+// getMax returns a max short URLs, so it should be called
+// in locked mode to get actual data.
 func getMax(coll *mgo.Collection) (string, error) {
     maxURL := &CustomURL{}
     err := coll.Find(nil).Sort("-_id").Limit(1).One(maxURL)
     if err != nil {
         if err == mgo.ErrNotFound {
-            return "1", nil
+            return string(Alphabet[1]), nil
         }
         return "", err
     }
@@ -121,13 +142,13 @@ func getMax(coll *mgo.Collection) (string, error) {
 func Inc(s string) string {
     n := len(s)
     if n == 0 {
-        return "0"
+        return string(Alphabet[0])
     }
     if s[n-1] == Alphabet[basis-1] {
         if n == 1 {
-            return "10"
+            return string(Alphabet[1]) + string(Alphabet[0])
         }
-        s = Inc(s[:n-1]) + "0"
+        s = Inc(s[:n-1]) + string(Alphabet[0])
     } else {
         i := sort.Search(basis, func(j int) bool { return Alphabet[j] >= s[n-1] })
         if (i < basis) && (Alphabet[i] == s[n-1]) {
