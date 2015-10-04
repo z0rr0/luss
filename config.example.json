@@ -38,6 +38,6 @@
     "dbpoolsize": 2,              // size of database connections pool
     "dbpoolttl": 10,              // period between pool clean (seconds)
     "debug": false,               // turn on connections pool debug
-    "lrusize": 128                // LRU cache size for short URLs
+    "lrusize": 2                  // LRU cache size for short URLs, 0 - disabled
   }
 }

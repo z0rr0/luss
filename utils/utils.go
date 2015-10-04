@@ -15,6 +15,7 @@ import (
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/lru"
 )
 
 const (
@@ -96,6 +97,12 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     if err != nil {
         return nil, err
     }
+    if cf.Cache.LRUSize < 1 {
+        LoggerInfo.Println("LRU cache is disabled")
+    } else {
+        LoggerInfo.Printf("LRU cache size is %v", cf.Cache.LRUSize)
+    }
+    cf.Cache.LRU = lru.New(cf.Cache.LRUSize)
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
     cf.Db.Logger = LoggerError
     return cf, nil

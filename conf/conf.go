@@ -15,6 +15,7 @@ import (
     "time"
 
     "github.com/z0rr0/hashq"
+    "github.com/z0rr0/luss/lru"
     "gopkg.in/mgo.v2"
 )
 
@@ -63,8 +64,9 @@ type MongoCfg struct {
 type cacheCfg struct {
     DbPoolSize int   `json:"dbpoolsize"`
     DbPoolTTL  int64 `json:"dbpoolttl"`
-    LRUSize    uint  `json:"lrusize"`
+    LRUSize    int   `json:"lrusize"`
     Debug      bool  `json:"debug"`
+    LRU        *lru.Cache
 }
 
 // Config is main configuration storage.

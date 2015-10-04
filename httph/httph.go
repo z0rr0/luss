@@ -47,12 +47,10 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     }
     raw, err := checkAddLinkForm(r)
     if (err != nil) || (raw == "") {
-        utils.LoggerDebug.Println(err)
         return http.StatusBadRequest, "bad request"
     }
     url, err := url.ParseRequestURI(raw)
     if err != nil {
-        utils.LoggerDebug.Println(err)
         return http.StatusBadRequest, "bad request - invalid URL"
     }
     // TODO: authentication
@@ -60,7 +58,6 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     // ascii raw URL
     host, err := idna.ToASCII(url.Host)
     if err != nil {
-        utils.LoggerDebug.Println(err)
         return http.StatusBadRequest, "bad request - bad domain"
     }
     url.Host = host
