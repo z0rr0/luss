@@ -29,6 +29,7 @@ PACKAGES_TEST=( \
 "db" \
 "conf" \
 "trim" \
+"lru" \
 )
 
 PACKAGES_CHECK=( \
@@ -38,6 +39,7 @@ PACKAGES_CHECK=( \
 "db" \
 "trim" \
 "httph" \
+"lru" \
 )
 
 if [ -z "$GOPATH" ]; then

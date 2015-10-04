@@ -81,9 +81,6 @@ func (c *Cache) Remove(key Key) {
 
 // removeElement the element from the cache.
 func (c *Cache) removeElement(e *list.Element) {
-    if c.maxEntries < 1 {
-        return
-    }
     c.ll.Remove(e)
     en := e.Value.(*entry)
     delete(c.cache, en.key)
