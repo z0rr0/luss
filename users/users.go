@@ -169,6 +169,7 @@ func CheckToken(token string, c *conf.Config) (string, error) {
     d.Write([]byte(c.Listener.Security.Salt))
     d.Write(fullToken[:n/2])
     d.Read(h)
+    // TODO: crypto-unsafe (timing attack), use value independent methods
     if !bytes.Equal(h, fullToken[n/2:n]) {
         return "", errors.New("invalid token")
     }

@@ -92,6 +92,7 @@ func main() {
     }
 
     isUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]+$", trim.Alphabet))
+    // TODO: do all handlers
     handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
         "/test/t":   HandlerTest,
         "/add/link": httph.HandlerAddLink,
