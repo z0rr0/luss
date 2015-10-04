@@ -85,8 +85,8 @@ func (c *Cache) Get(key string) (string, bool) {
     if c.maxEntries < 1 {
         return "", false
     }
-    c.m.RLock()
-    defer c.m.RUnlock()
+    c.m.Lock()
+    defer c.m.Unlock()
     if e, ok := c.cache[key]; ok {
         c.ll.MoveToFront(e)
         return e.Value.(*entry).value, true
