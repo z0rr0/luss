@@ -9,6 +9,15 @@
       "admininit": "abc"          //   amdin init secrete part
     }
   },
+  "projects": {                   // project's settings:
+    "maxspam": 5,                 //   max spam percents
+    "cblength": 255,              //   max length of callback parameter
+    "anonymous": {                //   settings of anonymous projects
+      "allow": true,              //     allow anonymous projects
+      "name": "default",          //     default anonymous project's name
+      "user": "anonymous"         //     default user name in anonymous projects
+    }
+  },
   "database": {                   // MongoDB configuration:
     "hosts": ["localhost"],       //   servers list
     "port": 27017,                //   connection port
@@ -28,6 +37,7 @@
   "cache": {                      // cache settings
     "dbpoolsize": 2,              // size of database connections pool
     "dbpoolttl": 10,              // period between pool clean (seconds)
-    "debug": false                // turn on connections pool debug
+    "debug": false,               // turn on connections pool debug
+    "lrusize": 128                // LRU cache size for short URLs
   }
 }

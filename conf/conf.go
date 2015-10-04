@@ -63,6 +63,7 @@ type MongoCfg struct {
 type cacheCfg struct {
     DbPoolSize int   `json:"dbpoolsize"`
     DbPoolTTL  int64 `json:"dbpoolttl"`
+    LRUSize    uint  `json:"lrusize"`
     Debug      bool  `json:"debug"`
 }
 
