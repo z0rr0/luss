@@ -16,7 +16,6 @@ import (
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
-    "github.com/z0rr0/luss/lru"
     "gopkg.in/mgo.v2"
     "gopkg.in/mgo.v2/bson"
 )
@@ -94,7 +93,7 @@ func (c *CustomURL) Stat(conf *conf.Config) error {
 func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     // look in the cache
     // of found, return simplified CustomURL (only links)
-    if val, ok := c.Cache.LRU.Get(lru.Key(url)); ok {
+    if val, ok := c.Cache.LRU.Get(url); ok {
         // Logger.Printf("found in the cache: %v", url)
         return &CustomURL{Short: url, Original: string(val)}, nil
     }
@@ -110,7 +109,7 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
         return nil, err
     }
     // add to the cache
-    c.Cache.LRU.Add(lru.Key(url), lru.Value(cu.Original))
+    c.Cache.LRU.Add(url, cu.Original)
     return cu, nil
 }
 

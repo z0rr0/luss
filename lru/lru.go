@@ -4,8 +4,8 @@
 
 // Package lru implements LRU cache methods to speed up search already saved short URLs.
 //
-// It based on github.com/golang/groupcache
-// and github.com/hashicorp/golang-lru,  but more simple.
+// It is based on github.com/golang/groupcache
+// and github.com/hashicorp/golang-lru,  but more simple and uses only string keys and values.
 package lru
 
 import (
@@ -13,38 +13,32 @@ import (
     "sync"
 )
 
-// Key  is a type if caching key.
-type Key string
-
-// Value  is a type if caching value.
-type Value string
-
 // Cache is an LRU cache. It is thread-safe for concurrent access.
 type Cache struct {
     // maxEntries is the maximum number of cache entries.
     maxEntries int
     ll         *list.List
-    cache      map[Key]*list.Element
+    cache      map[string]*list.Element
     m          sync.RWMutex
 }
 
 // entry is cache entry.
 type entry struct {
-    key   Key
-    value Value
+    key   string
+    value string
 }
 
 // New initializes new Cache storage.
 func New(size int) *Cache {
-    var c map[Key]*list.Element
+    var c map[string]*list.Element
     if size > 0 {
-        c = make(map[Key]*list.Element, size+1)
+        c = make(map[string]*list.Element, size+1)
     }
     return &Cache{maxEntries: size, ll: list.New(), cache: c}
 }
 
 // Add adds a value to the cache.
-func (c *Cache) Add(key Key, value Value) {
+func (c *Cache) Add(key string, value string) {
     if c.maxEntries < 1 {
         return
     }
@@ -68,7 +62,7 @@ func (c *Cache) Add(key Key, value Value) {
 }
 
 // Remove removes the provided key from the cache.
-func (c *Cache) Remove(key Key) {
+func (c *Cache) Remove(key string) {
     if c.maxEntries < 1 {
         return
     }
@@ -87,10 +81,9 @@ func (c *Cache) removeElement(e *list.Element) {
 }
 
 // Get a value from the cache by its key.
-func (c *Cache) Get(key Key) (Value, bool) {
-    var empty Value
+func (c *Cache) Get(key string) (string, bool) {
     if c.maxEntries < 1 {
-        return empty, false
+        return "", false
     }
     c.m.RLock()
     defer c.m.RUnlock()
@@ -98,7 +91,7 @@ func (c *Cache) Get(key Key) (Value, bool) {
         c.ll.MoveToFront(e)
         return e.Value.(*entry).value, true
     }
-    return empty, false
+    return "", false
 }
 
 // Len returns the number of items in the cache.

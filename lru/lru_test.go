@@ -51,13 +51,13 @@ func TestNew(t *testing.T) {
 
 func BenchmarkLRU(b *testing.B) {
     var (
-        size       = 4066
-        k          = "short_URL_string"
-        v    Value = "long URL sring"
+        size = 4066
+        k    = "short_URL_string"
+        v    = "long URL sring"
     )
     c := New(size)
     for i := 0; i < b.N; i++ {
-        key := Key(fmt.Sprintf("%s-%v", k, i))
+        key := fmt.Sprintf("%s-%v", k, i)
         c.Add(key, v)
         c.Get(key)
     }
