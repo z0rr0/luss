@@ -7,11 +7,14 @@
 package trim
 
 import (
+    "errors"
     "fmt"
     "log"
     "math"
+    "net/http"
     "os"
     "sort"
+    "strconv"
     "time"
 
     "github.com/z0rr0/luss/conf"
@@ -45,25 +48,14 @@ type CustomURL struct {
     Created   time.Time  `bson:"ts"`
 }
 
-// LockColls adds a lock recored to name-collection
-func LockColls(name string, conn *db.Conn) error {
-    const maxAttempts = 3
-    delay := time.Duration(10 * time.Millisecond)
-    coll := conn.C(db.Colls["locks"])
-    for i := 0; i < maxAttempts; i++ {
-        _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
-        if err == nil {
-            return nil
-        }
-        time.Sleep(time.Duration(i+1) * delay)
-    }
-    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", db.Colls["locks"], maxAttempts)
-}
-
-// UnlockColls removes a lock recored from name-collection.
-func UnlockColls(name string, conn *db.Conn) error {
-    coll := conn.C(db.Colls["locks"])
-    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"locked": false})
+// RequestForm is a structure of data from user's add-request.
+type RequestForm struct {
+    Original string `json:"url"`
+    Project  string `json:"project"`
+    Token    string `json:"token"`
+    TTL      int    `json:"ttl"`
+    User     string
+    TTLp     *time.Time
 }
 
 // String returns a representative form of CustomURL.
@@ -87,6 +79,51 @@ func (c *CustomURL) Stat(conf *conf.Config) error {
         Logger.Printf("can't update statistics: %v", err)
     }
     return err
+}
+
+// CheckReqForm parses HTTP request and returns RequestForm pointer.
+func CheckReqForm(r *http.Request, c *conf.Config) (*RequestForm, error) {
+    var (
+        ttl int
+        err error
+    )
+    url := r.PostFormValue("url")
+    if url == "" {
+        return nil, errors.New("url parameter not found")
+    }
+    ttls := r.PostFormValue("ttl")
+    if ttls != "" {
+        ttl, err = strconv.Atoi(ttls)
+        if err != nil {
+            return nil, err
+        }
+    }
+    // p := r.PostFormValue("project")
+    // t := r.PostFormValue("token")
+    t, p, u := "token", "default", "anonymous"
+    // check project's settings and auth, set TTLp
+    return &RequestForm{Original: url, Project: p, Token: t, TTL: ttl, User: u, TTLp: nil}, nil
+}
+
+// LockColls adds a lock recored to name-collection
+func LockColls(name string, conn *db.Conn) error {
+    const maxAttempts = 3
+    delay := time.Duration(10 * time.Millisecond)
+    coll := conn.C(db.Colls["locks"])
+    for i := 0; i < maxAttempts; i++ {
+        _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
+        if err == nil {
+            return nil
+        }
+        time.Sleep(time.Duration(i+1) * delay)
+    }
+    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", db.Colls["locks"], maxAttempts)
+}
+
+// UnlockColls removes a lock recored from name-collection.
+func UnlockColls(name string, conn *db.Conn) error {
+    coll := conn.C(db.Colls["locks"])
+    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"locked": false})
 }
 
 // FindShort checks that url exists and returns it.
@@ -114,7 +151,8 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
 }
 
 // GetShort returns a new short URL.
-func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*CustomURL, error) {
+// func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*CustomURL, error) {
+func GetShort(reqf *RequestForm, c *conf.Config) (*CustomURL, error) {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
@@ -131,7 +169,16 @@ func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*Custo
     if err != nil {
         return nil, err
     }
-    cu := &CustomURL{Short: short, Active: true, Project: project, Original: url, User: user, TTL: ttl, NotDirect: false, Spam: 0, Created: time.Now().UTC()}
+    cu := &CustomURL{Short: short,
+        Active:    true,
+        Project:   reqf.Project,
+        Original:  reqf.Original,
+        User:      reqf.User,
+        TTL:       reqf.TTLp,
+        NotDirect: false,
+        Spam:      0,
+        Created:   time.Now().UTC(),
+    }
     return cu, coll.Insert(cu)
 }
 

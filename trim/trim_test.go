@@ -81,7 +81,8 @@ func TestGetShort(t *testing.T) {
         return
     }
     cfg := utils.Cfg
-    cu, err := GetShort(longURL, user, project, nil, cfg.Conf)
+    rf := &RequestForm{Original: longURL, Project: project, Token: "", TTL: 0, User: user, TTLp: nil}
+    cu, err := GetShort(rf, cfg.Conf)
     if err != nil {
         t.Errorf("invalid: %v", err)
         return
@@ -117,7 +118,8 @@ func TestFindShort(t *testing.T) {
         return
     }
     defer clean()
-    cu1, err := GetShort(longURL, user, project, nil, cfg.Conf)
+    rf := &RequestForm{Original: longURL, Project: project, Token: "", TTL: 0, User: user, TTLp: nil}
+    cu1, err := GetShort(rf, cfg.Conf)
     if err != nil {
         t.Errorf("invalid: %v", err)
         return

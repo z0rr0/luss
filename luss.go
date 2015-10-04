@@ -94,7 +94,8 @@ func main() {
     isUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]+$", trim.Alphabet))
     handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
         "/test/t":   HandlerTest,
-        "/link/add": httph.HandlerAddLink,
+        "/add/link": httph.HandlerAddLink,
+        "/add/json": httph.HandlerAddJSON,
         // "/p/add" - POST name+email -> confrim+admin
         // "/p/edit" - PUT users+roles
         // "/p/del" - DELETE del+remove links?

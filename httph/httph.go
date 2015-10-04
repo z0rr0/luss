@@ -20,13 +20,13 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
-func checkAddLinkForm(r *http.Request) (string, error) {
+func checkAddLinkForm(r *http.Request, c *conf.Config) (*trim.RequestForm, error) {
     err := r.ParseForm() // 10 MB
     if err != nil {
-        return "", err
+        return nil, err
     }
     r.ParseMultipartForm(32 << 10) // 32 MB
-    return r.PostFormValue("url"), nil
+    return trim.CheckReqForm(r, c)
 }
 
 // TestWrite writes temporary data to the database.
@@ -40,29 +40,40 @@ func TestWrite(c *conf.Config) error {
     return coll.Insert(bson.M{"ts": time.Now()})
 }
 
-// HandlerAddLink adds returns a new save short link.
+// HandlerAddJSON creates and saves new short links from JSON format.
+func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
+    if r.Method != "POST" {
+        return http.StatusMethodNotAllowed, "method not allowed"
+    }
+    t := r.Header["Content-Type"]
+    fmt.Println(len(t), t)
+    fmt.Fprintf(w, "data=%v", "ok")
+    return http.StatusOK, ""
+}
+
+// HandlerAddLink creates and saves new short link.
 func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    raw, err := checkAddLinkForm(r)
-    if (err != nil) || (raw == "") {
+    reqf, err := checkAddLinkForm(r, utils.Cfg.Conf)
+    if err != nil {
+        utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
     }
-    url, err := url.ParseRequestURI(raw)
+    url, err := url.ParseRequestURI(reqf.Original)
     if err != nil {
         return http.StatusBadRequest, "bad request - invalid URL"
     }
-    // TODO: authentication
-    project, user := "default", "anonymous"
     // ascii raw URL
     host, err := idna.ToASCII(url.Host)
     if err != nil {
         return http.StatusBadRequest, "bad request - bad domain"
     }
     url.Host = host
+    reqf.Original = url.String()
     // incomming URL is Ok, try to trim and save
-    short, err := trim.GetShort(url.String(), user, project, nil, utils.Cfg.Conf)
+    short, err := trim.GetShort(reqf, utils.Cfg.Conf)
     if err != nil {
         return http.StatusInternalServerError, "internal error"
     }
