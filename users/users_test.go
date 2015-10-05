@@ -43,18 +43,18 @@ func TestCheckToken(t *testing.T) {
         t.Error("wrong behavior")
     }
     // bad tokens
-    // if _, err := CheckToken("", c.Conf); err == nil {
-    //     t.Error("wrong behavior")
-    // }
-    // if _, err := CheckToken("abc", c.Conf); err == nil {
-    //     t.Error("wrong behavior")
-    // }
-    // if _, err := CheckToken("abcdefabcdefabcdefabcdefabcdefabcdefab", c.Conf); err == nil {
-    //     t.Error("wrong behavior")
-    // }
-    // if _, err := CheckToken("M<.", c.Conf); err == nil {
-    //     t.Error("wrong behavior")
-    // }
+    if _, err := CheckToken("", c.Conf); err == nil {
+        t.Error("wrong behavior")
+    }
+    if _, err := CheckToken("abc", c.Conf); err == nil {
+        t.Error("wrong behavior")
+    }
+    if _, err := CheckToken("abcdefabcdefabcdefabcdefabcdefabcdefab", c.Conf); err == nil {
+        t.Error("wrong behavior")
+    }
+    if _, err := CheckToken("M<.", c.Conf); err == nil {
+        t.Error("wrong behavior")
+    }
     // good token
     key, err := CheckToken(val, c.Conf)
     if (err != nil) || (key == "") {

@@ -6,7 +6,6 @@
 package users
 
 import (
-    "bytes"
     "crypto/rand"
     "encoding/hex"
     "errors"
@@ -60,6 +59,23 @@ func (u *User) Refresh(c *conf.Config) error {
     }
     collection := conn.C(db.Colls["users"])
     return collection.Find(bson.M{"name": u.Name}).One(u)
+}
+
+// EqualBytes compares two byte slices. It is crypto-safe, because
+// successful and unsuccessful attempts have around a same duration time.
+func EqualBytes(x, y []byte) bool {
+    result := true
+    mi, ma := x, y
+    if len(x) > len(y) {
+        mi, ma = y, x
+        result = false
+    }
+    for i, v := range mi {
+        if ma[i] != v {
+            result = false
+        }
+    }
+    return result
 }
 
 // GenRndBytes generates random bytes.
@@ -169,8 +185,9 @@ func CheckToken(token string, c *conf.Config) (string, error) {
     d.Write([]byte(c.Listener.Security.Salt))
     d.Write(fullToken[:n/2])
     d.Read(h)
-    // TODO: crypto-unsafe (timing attack), use value independent methods
-    if !bytes.Equal(h, fullToken[n/2:n]) {
+    // don't use bytes.Equal here, because
+    // timing attack can be applicable for this method.
+    if !EqualBytes(h, fullToken[n/2:n]) {
         return "", errors.New("invalid token")
     }
     return token[l/2 : l], nil
