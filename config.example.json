@@ -3,16 +3,24 @@
     "host": "",                   // HTTP server host
     "port": 10001,                // HTTP server port
     "timeout": 30,                // HTTP server timeout
-    "cleanup": 60,                // links clean up timeout (minutes)
+    "cleanup": 60,                // links clean up timeout (seconds) [moved ot workes]
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
       "tokenlen": 16,             //   token length in bytes
       "admininit": "abc"          //   amdin init secrete part
     }
   },
+  "workers":  {
+    "cleanup": 60,                // links clean up timeout (seconds)
+    "numstats": 2,                // number of statistics goroutines
+    "bufstat": 1,                 // channel buffer of statistics goroutines (less than numstats)
+    "numcb": 2,                   // number of callbacks goroutines
+    "bufcb": 1                    // channel buffer of callbacks goroutines (less than numcb)
+  },
   "projects": {                   // project's settings:
     "maxspam": 5,                 //   max spam percents
     "cblength": 255,              //   max length of callback parameter
+    "maxname": 64,                //   max length of project's name
     "anonymous": {                //   settings of anonymous projects
       "allow": true,              //     allow anonymous projects
       "name": "default",          //     default anonymous project's name

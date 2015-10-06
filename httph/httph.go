@@ -84,6 +84,8 @@ func HandlerRedirect(short string, r *http.Request) (string, error) {
         utils.LoggerDebug.Printf("invalid short link: %v", short)
         return "", err
     }
+    // write to buffered channel: stats + callback
+    // handler method should be limited by goroutines numbers
     go cu.Stat(utils.Cfg.Conf)
     return cu.Original, nil
 }

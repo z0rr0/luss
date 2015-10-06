@@ -114,14 +114,12 @@ func CreateUser(name, role string, c *conf.Config) (*User, error) {
     if tErr != nil {
         return nil, tErr
     }
-    _, err = collection.Upsert(bson.M{"name": name},
-        bson.M{
-            "name":    name,
-            "role":    role,
-            "token":   p2,
-            "created": time.Now().UTC(),
-        },
-    )
+    err = collection.Insert(bson.M{
+        "name":    name,
+        "role":    role,
+        "token":   p2,
+        "created": time.Now().UTC(),
+    })
     if err != nil {
         return nil, err
     }

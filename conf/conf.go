@@ -76,6 +76,7 @@ type Config struct {
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
+    Pool     *hashq.HashQ
 }
 
 // ConnCap returns a recommended connections capacity.

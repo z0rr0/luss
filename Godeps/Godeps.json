@@ -11,9 +11,17 @@
 			"Rev": "c490e37e12b3dfd1dcdb1d165d0a7af153935e86"
 		},
 		{
+			"ImportPath": "golang.org/x/crypto/sha3",
+			"Rev": "e74b0352e547e3830f8471e7ae9609239c52606f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/idna",
+			"Rev": "01256db42e5106196a3473ec1620727a383500e8"
+		},
+		{
 			"ImportPath": "gopkg.in/mgo.v2",
-			"Comment": "r2015.06.03-5-g22287ba",
-			"Rev": "22287bab4379e1fbf6002fb4eb769888f3fb224c"
+			"Comment": "r2015.06.03-44-gf402e3a",
+			"Rev": "f402e3a216db333ae6b3ba68b9152a34a0bc6984"
 		}
 	]
 }

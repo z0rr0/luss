@@ -45,7 +45,6 @@ var (
 // It is used as a singleton.
 type Configuration struct {
     Conf   *conf.Config
-    Pool   *hashq.HashQ
     Clean  chan string
     Logger *log.Logger
 }
@@ -73,7 +72,7 @@ func checkDbConnection(cfg *conf.Config) error {
         return err
     }
     defer db.ReleaseConn(conn)
-    LoggerInfo.Println("DB connection checked")
+    LoggerDebug.Println("DB connection checked")
     return err
 }
 
@@ -104,11 +103,18 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     if cf.Cache.LRUSize < 1 {
         LoggerInfo.Println("LRU cache is disabled")
     } else {
-        LoggerInfo.Printf("LRU cache size is %v", cf.Cache.LRUSize)
+        LoggerDebug.Printf("LRU cache size is %v", cf.Cache.LRUSize)
     }
     cf.Cache.LRU = lru.New(cf.Cache.LRUSize)
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
-    cf.Listener.CleanUp = time.Duration(cf.Listener.CleanMin) * time.Minute
+    cf.Listener.CleanUp = time.Duration(cf.Listener.CleanMin) * time.Second
+    // create connection pool
+    hashq.Debug(cf.Cache.Debug)
+    pool, perr := db.NewConnPool(cf)
+    if perr != nil {
+        return nil, perr
+    }
+    cf.Pool = pool
     cf.Db.Logger = LoggerError
     return cf, nil
 }
@@ -119,23 +125,18 @@ func InitConfig(filename string, debug bool) error {
     if err != nil {
         return err
     }
-    hashq.Debug(cf.Cache.Debug)
-    // create connection pool
-    pool, perr := db.NewConnPool(cf)
-    if perr != nil {
-        return perr
-    }
     // common configuration
-    Cfg = &Configuration{Conf: cf, Pool: pool, Logger: LoggerError, Clean: make(chan string)}
-    go URLCleaner(Cfg.Conf, Cfg.Clean)
+    Cfg = &Configuration{Conf: cf, Logger: LoggerError, Clean: make(chan string)}
+    go Cfg.URLCleaner()
     return checkDbConnection(Cfg.Conf)
 }
 
 // URLCleaner deletes expired short links or all ones of a requested project.
-func URLCleaner(c *conf.Config, projects <-chan string) {
+func (c *Configuration) URLCleaner() {
+    LoggerDebug.Println("URLCleaner is started")
     urlsC := db.Colls["urls"]
     clean := func(cond bson.M) {
-        conn, err := db.GetConn(c)
+        conn, err := db.GetConn(c.Conf)
         defer db.ReleaseConn(conn)
         if err != nil {
             LoggerError.Printf("can't run cleanup: %v", err)
@@ -151,9 +152,9 @@ func URLCleaner(c *conf.Config, projects <-chan string) {
     }
     for {
         select {
-        case <-time.After(c.Listener.CleanUp):
+        case <-time.After(c.Conf.Listener.CleanUp):
             clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}})
-        case p := <-projects:
+        case p := <-c.Clean:
             clean(bson.M{"prj": p})
         }
     }

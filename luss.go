@@ -18,6 +18,7 @@ import (
 
     "github.com/z0rr0/luss/httph"
     "github.com/z0rr0/luss/trim"
+    "github.com/z0rr0/luss/users"
     "github.com/z0rr0/luss/utils"
 )
 
@@ -58,6 +59,7 @@ func HandlerTest(w http.ResponseWriter, r *http.Request) (int, string) {
 }
 
 func main() {
+    var err error
     defer func() {
         if r := recover(); r != nil {
             fmt.Printf("abnormal termination [%v]: %v\n", Version, r)
@@ -66,13 +68,26 @@ func main() {
     debug := flag.Bool("debug", false, "debug mode")
     version := flag.Bool("version", false, "show version")
     config := flag.String("config", Config, "configuration file")
+    admin := flag.String("addadmin", "", "add new admin user")
     flag.Parse()
     if *version {
         fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
         return
     }
     // configuration initialization
-    err := utils.InitConfig(*config, *debug)
+    if *admin != "" {
+        cf, err := utils.InitFileConfig(*config, *debug)
+        if err != nil {
+            utils.LoggerError.Panicf("init config error [%v]", err)
+        }
+        if u, err := users.CreateUser(*admin, "admin", cf); err != nil {
+            utils.LoggerError.Panicf("create admin error [%v]", err)
+        } else {
+            utils.LoggerInfo.Printf("Administrator is created:\n\tname: %v\n\ttoken: %v\n", u.Name, u.Secret)
+        }
+        return
+    }
+    err = utils.InitConfig(*config, *debug)
     if err != nil {
         utils.LoggerError.Panicf("init config error [%v]", err)
     }

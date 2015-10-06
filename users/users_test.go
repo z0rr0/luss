@@ -84,7 +84,7 @@ func TestCreateUser(t *testing.T) {
     if u.Secret == "" {
         t.Error("wrong behavior")
     }
-    if _, err := CreateUser("test", "", c); err != nil {
+    if _, err := CreateUser("test", "", c); err == nil {
         t.Errorf("invalid value: %v", err)
     }
     if err := DeleteUser("test", c); err != nil {
