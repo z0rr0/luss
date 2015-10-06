@@ -20,15 +20,6 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
-func checkAddLinkForm(r *http.Request, c *conf.Config) (*trim.RequestForm, error) {
-    err := r.ParseForm() // 10 MB
-    if err != nil {
-        return nil, err
-    }
-    r.ParseMultipartForm(32 << 10) // 32 MB
-    return trim.CheckReqForm(r, c)
-}
-
 // TestWrite writes temporary data to the database.
 func TestWrite(c *conf.Config) error {
     conn, err := db.GetConn(c)
@@ -56,7 +47,7 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    reqf, err := checkAddLinkForm(r, utils.Cfg.Conf)
+    reqf, err := trim.CheckReqForm(r, utils.Cfg.Conf)
     if err != nil {
         utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
