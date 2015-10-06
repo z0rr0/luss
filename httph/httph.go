@@ -86,6 +86,6 @@ func HandlerRedirect(short string, r *http.Request) (string, error) {
     }
     // write to buffered channel: stats + callback
     // handler method should be limited by goroutines numbers
-    go cu.Stat(utils.Cfg.Conf)
+    utils.Cfg.Conf.Workers.ChStats <- cu.Short
     return cu.Original, nil
 }

@@ -64,7 +64,7 @@ func (c *CustomURL) String() string {
 }
 
 // Stat updates statistics about CustomURL usage.
-func (c *CustomURL) Stat(conf *conf.Config) error {
+func Stat(url string, conf *conf.Config) error {
     conn, err := db.GetConn(conf)
     defer db.ReleaseConn(conn)
     if err != nil {
@@ -74,11 +74,24 @@ func (c *CustomURL) Stat(conf *conf.Config) error {
     coll := conn.C(db.Colls["ustats"])
     y, m, d := time.Now().UTC().Date()
     day := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-    _, err = coll.Upsert(bson.M{"url": c.Short, "day": day}, bson.M{"$inc": bson.M{"c": 1}})
+    _, err = coll.Upsert(bson.M{"url": url, "day": day}, bson.M{"$inc": bson.M{"c": 1}})
     if err != nil {
         Logger.Printf("can't update statistics: %v", err)
     }
     return err
+}
+
+// CallBAck send callback requests.
+func CallBAck(pname string, conf *conf.Config) error {
+    conn, err := db.GetConn(conf)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        Logger.Printf("callback error: %v", err)
+        return err
+    }
+    // coll := conn.C(db.Colls["projects"])
+    // TODO: find callbacks and send requests
+    return nil
 }
 
 // CheckReqForm parses HTTP request and returns RequestForm pointer.

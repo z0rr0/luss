@@ -26,7 +26,14 @@ var (
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
     // Colls is a map of db collections.
-    Colls = map[string]string{"test": "test", "users": "users", "urls": "urls", "locks": "locks", "ustats": "ustats"}
+    Colls = map[string]string{
+        "test":     "test",
+        "users":    "users",
+        "urls":     "urls",
+        "locks":    "locks",
+        "ustats":   "ustats",
+        "projects": "projects",
+    }
 )
 
 // Conn is database connection structure.
@@ -168,9 +175,11 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
     if err != nil {
         return nil, err
     }
+    mode := mgo.PrimaryPreferred
     if !cfg.PrimaryRead {
-        session.SetMode(mgo.Eventual, true)
+        mode = mgo.SecondaryPreferred
     }
+    session.SetMode(mode, true)
     // session.EnsureSafe(&mgo.Safe{W: 1})
     if cfg.Debug {
         mgo.SetLogger(cfg.Logger)
@@ -214,6 +223,7 @@ func GetConn(cfg *conf.Config) (*Conn, error) {
 
 // NewConnPool initializes new connections pool.
 func NewConnPool(cfg *conf.Config) (*hashq.HashQ, error) {
+    // TODO: should we have 2 pools for primary/secondary read prefer?
     if cfg == nil {
         return nil, errors.New("invalid parameter")
     }

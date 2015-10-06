@@ -35,9 +35,7 @@ type listener struct {
     Host     string   `json:"host"`
     Port     uint     `json:"port"`
     Timeout  int64    `json:"timeout"`
-    CleanMin int64    `json:"cleanup"`
     Security security `json:"security"`
-    CleanUp  time.Duration
 }
 
 // MongoCfg is database configuration settings
@@ -71,11 +69,24 @@ type cacheCfg struct {
     LRU        *lru.Cache
 }
 
+// workers is main workers settings
+type workers struct {
+    CleanMin int64 `json:"cleanup"`
+    NumStats int   `json:"numstats"`
+    BufStats int   `json:"bufstat"`
+    NumCb    int   `json:"numcb"`
+    BufCb    int   `json:"bufcb"`
+    CleanD   time.Duration
+    ChStats  chan string
+    ChCb     chan string
+}
+
 // Config is main configuration storage.
 type Config struct {
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
+    Workers  workers
     Pool     *hashq.HashQ
 }
 

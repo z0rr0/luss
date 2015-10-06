@@ -16,6 +16,7 @@ import (
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "github.com/z0rr0/luss/lru"
+    "github.com/z0rr0/luss/trim"
     "gopkg.in/mgo.v2/bson"
 )
 
@@ -94,8 +95,16 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         err = errorGen(fmt.Sprintf("insecure salt value, min length is %v symbols", conf.SaltsLen), "listener.security.salt")
     case cf.Listener.Security.TokenLen < 1:
         err = errorGen("incorrect or empty value", "listener.security.tokenlen")
-    case cf.Listener.CleanMin < 1:
-        err = errorGen("incorrect or empty value", "listener.cleanup")
+    case cf.Workers.CleanMin < 1:
+        err = errorGen("incorrect or empty value", "workers.cleanup")
+    case cf.Workers.NumStats < 1:
+        err = errorGen("incorrect or empty value", "workers.numstats")
+    case cf.Workers.NumCb < 1:
+        err = errorGen("incorrect or empty value", "workers.numcb")
+    case cf.Workers.BufStats < 1:
+        err = errorGen("incorrect or empty value", "workers.bufstats")
+    case cf.Workers.BufCb < 1:
+        err = errorGen("incorrect or empty value", "workers.bufcb")
     }
     if err != nil {
         return nil, err
@@ -105,9 +114,15 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     } else {
         LoggerDebug.Printf("LRU cache size is %v", cf.Cache.LRUSize)
     }
+    if cf.Workers.BufStats > cf.Workers.NumStats {
+        cf.Workers.BufStats = cf.Workers.NumStats
+    }
+    if cf.Workers.BufCb > cf.Workers.NumCb {
+        cf.Workers.BufCb = cf.Workers.NumCb
+    }
     cf.Cache.LRU = lru.New(cf.Cache.LRUSize)
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
-    cf.Listener.CleanUp = time.Duration(cf.Listener.CleanMin) * time.Second
+    cf.Workers.CleanD = time.Duration(cf.Workers.CleanMin) * time.Second
     // create connection pool
     hashq.Debug(cf.Cache.Debug)
     pool, perr := db.NewConnPool(cf)
@@ -127,6 +142,7 @@ func InitConfig(filename string, debug bool) error {
     }
     // common configuration
     Cfg = &Configuration{Conf: cf, Logger: LoggerError, Clean: make(chan string)}
+    go Cfg.RunWorkers()
     go Cfg.URLCleaner()
     return checkDbConnection(Cfg.Conf)
 }
@@ -152,10 +168,33 @@ func (c *Configuration) URLCleaner() {
     }
     for {
         select {
-        case <-time.After(c.Conf.Listener.CleanUp):
+        case <-time.After(c.Conf.Workers.CleanD):
             clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}})
         case p := <-c.Clean:
             clean(bson.M{"prj": p})
         }
     }
+}
+
+// RunWorkers runs workers goroutines
+func (c *Configuration) RunWorkers() {
+    c.Conf.Workers.ChStats = make(chan string, c.Conf.Workers.BufStats)
+    c.Conf.Workers.ChCb = make(chan string, c.Conf.Workers.BufCb)
+    for i := 0; i < c.Conf.Workers.NumStats; i++ {
+        // start stat handlers
+        go func() {
+            for s := range c.Conf.Workers.ChStats {
+                trim.Stat(s, c.Conf)
+            }
+        }()
+    }
+    for i := 0; i < c.Conf.Workers.NumCb; i++ {
+        // start callbacks handlers
+        go func() {
+            for s := range c.Conf.Workers.ChCb {
+                trim.CallBAck(s, c.Conf)
+            }
+        }()
+    }
+    LoggerDebug.Println("RunWorkers is started")
 }
