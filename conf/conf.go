@@ -35,7 +35,9 @@ type listener struct {
     Host     string   `json:"host"`
     Port     uint     `json:"port"`
     Timeout  int64    `json:"timeout"`
+    CleanMin int64    `json:"cleanup"`
     Security security `json:"security"`
+    CleanUp  time.Duration
 }
 
 // MongoCfg is database configuration settings

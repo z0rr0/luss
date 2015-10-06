@@ -3,6 +3,7 @@
     "host": "",                   // HTTP server host
     "port": 10001,                // HTTP server port
     "timeout": 30,                // HTTP server timeout
+    "cleanup": 60,                // links clean up timeout (minutes)
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
       "tokenlen": 16,             //   token length in bytes

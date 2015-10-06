@@ -16,6 +16,7 @@ import (
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "github.com/z0rr0/luss/lru"
+    "gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -45,6 +46,7 @@ var (
 type Configuration struct {
     Conf   *conf.Config
     Pool   *hashq.HashQ
+    Clean  chan string
     Logger *log.Logger
 }
 
@@ -93,6 +95,8 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         err = errorGen(fmt.Sprintf("insecure salt value, min length is %v symbols", conf.SaltsLen), "listener.security.salt")
     case cf.Listener.Security.TokenLen < 1:
         err = errorGen("incorrect or empty value", "listener.security.tokenlen")
+    case cf.Listener.CleanMin < 1:
+        err = errorGen("incorrect or empty value", "listener.cleanup")
     }
     if err != nil {
         return nil, err
@@ -104,6 +108,7 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     }
     cf.Cache.LRU = lru.New(cf.Cache.LRUSize)
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
+    cf.Listener.CleanUp = time.Duration(cf.Listener.CleanMin) * time.Minute
     cf.Db.Logger = LoggerError
     return cf, nil
 }
@@ -121,6 +126,35 @@ func InitConfig(filename string, debug bool) error {
         return perr
     }
     // common configuration
-    Cfg = &Configuration{Conf: cf, Pool: pool, Logger: LoggerError}
+    Cfg = &Configuration{Conf: cf, Pool: pool, Logger: LoggerError, Clean: make(chan string)}
+    go URLCleaner(Cfg.Conf, Cfg.Clean)
     return checkDbConnection(Cfg.Conf)
+}
+
+// URLCleaner deletes expired short links or all ones of a requested project.
+func URLCleaner(c *conf.Config, projects <-chan string) {
+    urlsC := db.Colls["urls"]
+    clean := func(cond bson.M) {
+        conn, err := db.GetConn(c)
+        defer db.ReleaseConn(conn)
+        if err != nil {
+            LoggerError.Printf("can't run cleanup: %v", err)
+            return
+        }
+        coll := conn.C(urlsC)
+        info, err := coll.RemoveAll(cond)
+        if err != nil {
+            LoggerError.Printf("can't finish cleanup: %v", err)
+            return
+        }
+        LoggerInfo.Printf("URLCleaner removed %v item(s)", info.Removed)
+    }
+    for {
+        select {
+        case <-time.After(c.Listener.CleanUp):
+            clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}})
+        case p := <-projects:
+            clean(bson.M{"prj": p})
+        }
+    }
 }
