@@ -124,13 +124,9 @@ func TestFindShort(t *testing.T) {
         t.Errorf("invalid: %v", err)
         return
     }
-    cu2, err := FindShort(cu1.Short, cfg.Conf)
-    if err != nil {
+    if _, err := FindShort(cu1.Short, cfg.Conf); err != nil {
         t.Errorf("invalid: %v", err)
         return
-    }
-    if err := cu2.Stat(cfg.Conf); err != nil {
-        t.Errorf("invalid: %v", err)
     }
 }
 

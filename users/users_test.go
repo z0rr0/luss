@@ -70,7 +70,7 @@ func TestCreateUser(t *testing.T) {
         return
     }
     c := utils.Cfg.Conf
-    DeleteUser("test", c)
+    DeleteUserByName("test", c)
 
     bName, err := GenRndBytes(260)
     if _, err := CreateUser(string(bName), "test", c); err == nil {
@@ -84,10 +84,14 @@ func TestCreateUser(t *testing.T) {
     if u.Secret == "" {
         t.Error("wrong behavior")
     }
-    if _, err := CreateUser("test", "", c); err == nil {
+    // user with same name but different token
+    if _, err := CreateUser("test", "", c); err != nil {
         t.Errorf("invalid value: %v", err)
     }
-    if err := DeleteUser("test", c); err != nil {
+    if err := DeleteUser(u.Token, c); err != nil {
+        t.Errorf("invalid value: %v", err)
+    }
+    if err := DeleteUserByName("test", c); err != nil {
         t.Errorf("invalid value: %v", err)
     }
 }

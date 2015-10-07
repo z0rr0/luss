@@ -51,13 +51,17 @@ type User struct {
 }
 
 // Refresh reads user info from database using a filter by the name.
+// It always read info from Primary db host.
 func (u *User) Refresh(c *conf.Config) error {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
         return err
     }
-    collection := conn.C(db.Colls["users"])
+    copySession := conn.Session.Copy()
+    copySession.SetMode(mgo.Primary, true)
+    defer copySession.Close()
+    collection := copySession.DB("").C(db.Colls["users"])
     return collection.Find(bson.M{"name": u.Name}).One(u)
 }
 
@@ -85,15 +89,27 @@ func GenRndBytes(n int) ([]byte, error) {
     return b, err
 }
 
-// DeleteUser deletes user by his name.
-func DeleteUser(name string, c *conf.Config) error {
+// DeleteUser deletes user by his token.
+func DeleteUser(token string, c *conf.Config) error {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
         return err
     }
     collection := conn.C(db.Colls["users"])
-    return collection.Remove(bson.M{"name": name})
+    return collection.Remove(bson.M{"token": token})
+}
+
+// DeleteUserByName deletes users by their names.
+func DeleteUserByName(name string, c *conf.Config) error {
+    conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        return err
+    }
+    collection := conn.C(db.Colls["users"])
+    _, err = collection.RemoveAll(bson.M{"name": name})
+    return err
 }
 
 // CreateUser creates new User.

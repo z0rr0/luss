@@ -15,7 +15,7 @@
 }
 
 db.users.ensureIndex({"token": 1}, {"unique": 1})
-db.users.ensureIndex({"role": 1, "name": 1})
+db.users.ensureIndex({"name": 1, "role": 1})
 ```
 
 **db.locks** - collection to control common locks

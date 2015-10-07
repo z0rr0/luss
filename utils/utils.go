@@ -16,7 +16,6 @@ import (
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "github.com/z0rr0/luss/lru"
-    "github.com/z0rr0/luss/trim"
     "gopkg.in/mgo.v2/bson"
 )
 
@@ -147,6 +146,37 @@ func InitConfig(filename string, debug bool) error {
     return checkDbConnection(Cfg.Conf)
 }
 
+// Stat updates statistics about CustomURL usage.
+func Stat(url string, conf *conf.Config) error {
+    conn, err := db.GetConn(conf)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        LoggerError.Printf("can't update statistics: %v", err)
+        return err
+    }
+    coll := conn.C(db.Colls["ustats"])
+    y, m, d := time.Now().UTC().Date()
+    day := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+    _, err = coll.Upsert(bson.M{"url": url, "day": day}, bson.M{"$inc": bson.M{"c": 1}})
+    if err != nil {
+        LoggerError.Printf("can't update statistics: %v", err)
+    }
+    return err
+}
+
+// CallBAck send callback requests.
+func CallBAck(pname string, conf *conf.Config) error {
+    conn, err := db.GetConn(conf)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        LoggerError.Printf("callback error: %v", err)
+        return err
+    }
+    // coll := conn.C(db.Colls["projects"])
+    // TODO: find callbacks and send requests
+    return nil
+}
+
 // URLCleaner deletes expired short links or all ones of a requested project.
 func (c *Configuration) URLCleaner() {
     LoggerDebug.Println("URLCleaner is started")
@@ -185,7 +215,7 @@ func (c *Configuration) RunWorkers() {
         // start stat handlers
         go func() {
             for s := range c.Conf.Workers.ChStats {
-                trim.Stat(s, c.Conf)
+                Stat(s, c.Conf)
             }
         }()
     }
@@ -193,7 +223,7 @@ func (c *Configuration) RunWorkers() {
         // start callbacks handlers
         go func() {
             for s := range c.Conf.Workers.ChCb {
-                trim.CallBAck(s, c.Conf)
+                CallBAck(s, c.Conf)
             }
         }()
     }
