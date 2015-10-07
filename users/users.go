@@ -62,7 +62,7 @@ func (u *User) Refresh(c *conf.Config) error {
     copySession.SetMode(mgo.Primary, true)
     defer copySession.Close()
     collection := copySession.DB("").C(db.Colls["users"])
-    return collection.Find(bson.M{"name": u.Name}).One(u)
+    return collection.Find(bson.M{"token": u.Token}).One(u)
 }
 
 // EqualBytes compares two byte slices. It is crypto-safe, because
@@ -114,6 +114,11 @@ func DeleteUserByName(name string, c *conf.Config) error {
 
 // CreateUser creates new User.
 func CreateUser(name, role string, c *conf.Config) (*User, error) {
+    const maxAttempts = 3
+    var (
+        p1, p2 string
+        tErr   error
+    )
     if len(name) > maxUserNameLen {
         return nil, errors.New("too long user's name")
     }
@@ -126,20 +131,31 @@ func CreateUser(name, role string, c *conf.Config) (*User, error) {
     if role == "" {
         role = "user"
     }
-    p1, p2, tErr := genToken(c)
-    if tErr != nil {
-        return nil, tErr
+
+    for i := 0; i < maxAttempts; i++ {
+        p1, p2, tErr = genToken(c)
+        if tErr != nil {
+            return nil, tErr
+        }
+        err = collection.Insert(bson.M{
+            "name":    name,
+            "role":    role,
+            "token":   p2,
+            "created": time.Now().UTC(),
+        })
+        switch {
+        case err == nil:
+            break
+        case !mgo.IsDup(err):
+            return nil, err
+        default:
+            Logger.Printf("duplicate user insert: %v", name)
+        }
     }
-    err = collection.Insert(bson.M{
-        "name":    name,
-        "role":    role,
-        "token":   p2,
-        "created": time.Now().UTC(),
-    })
     if err != nil {
         return nil, err
     }
-    u := &User{Name: name}
+    u := &User{Token: p2}
     err = u.Refresh(c)
     u.Secret = p1 + p2
     return u, err
