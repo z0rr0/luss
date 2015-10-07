@@ -1,51 +1,22 @@
 # Database schema file
 
-### Users
-
-**db.users** - information about users
-
-```js
-{
-  "_id": ObjectId(),               // user's ID
-  "name": "username",              // user's name (max 256)
-  "token": "123abc",               // user's secrete key (max 512)
-  "role": "admin",                 // user's global role
-  "modified": ISODate(),           // date of modification
-  "created": ISODate()             // date of creation
-}
-
-db.users.ensureIndex({"token": 1}, {"unique": 1})
-db.users.ensureIndex({"name": 1, "role": 1})
-```
-
-**db.locks** - collection to control common locks
-
-```js
-{
-  "_id": "urls",                   // locked collection
-  "locked": false,                 // mutex flag
-}
-
-// test collection is used during test ping.
-db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
-```
-
 ### URLs
 
 **db.urls** - information about URLs
 
 ```js
 {
-  "_id": "short url",              // short URL
-  "active": true,                  // link is active
-  "prj": "Project2",               // project's name
-  "orig": "origin URL",            // origin URL
-  "u": "User1",                    // author of this link
-  "ttl": ISODate(),                // link's TTL
-  "ndr": false,                    // no direct redirect
-  "spam": 0.5,                     // smap coefficient
-  "ts": ISODate()                  // date of creation
-  "mod": ISODate()                 // date of modification
+  "_id": "short url",               // short URL
+  "active": true,                   // link is active
+  "prj": "Project2",                // project's name
+  "orig": "origin URL",             // origin URL
+  "u": "User1",                     // author of this link
+  "ttl": ISODate(),                 // link's TTL
+  "ndr": false,                     // no direct redirect
+  "spam": 0.5,                      // smap coefficient
+  "ts": ISODate()                   // date of creation
+  "mod": ISODate()                  // date of modification
+  "cb": ["GET", "http://a.ru", "p"] // custom callback settings
 }
 
 db.urls.ensureIndex({"_id": 1, "active": 1}, {"unique": 1})
@@ -66,9 +37,23 @@ db.urls.ensureIndex({"ttl": 1, "active": 1})
 db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 ```
 
+### Locks
+
+**db.locks** - collection to control common locks
+
+```js
+{
+  "_id": "urls",                   // locked collection
+  "locked": false,                 // mutex flag
+}
+
+// test collection is used during test ping.
+db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
+```
+
 ### Projects
 
-**db.projects** - information about projects
+**db.projects** - information about projects and users.
 
 ```js
 {
@@ -79,12 +64,14 @@ db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
     {
       "user": "User1",             // user's name
       "key": "sercrete token",     // secrete token
-      "role": "owner"              // user's role
+      "role": "owner",             // user's role
+      "ts": Date()                 // date of modification
     },
     {
       "user": "User2",
       "key": "sercrete token",
-      "role": "writer"
+      "role": "writer",
+      "ts": Date()
     },
   ]
   "callbacks": [                   // callack methods
@@ -97,4 +84,7 @@ db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
   "modified": ISODate(),           // date of modification
   "created": ISODate()             // date of creation
 }
+
+db.projects.ensureIndex({"name": 1}, {"unique": 1})
+db.projects.ensureIndex({"users.key": 1}, {"unique": 1})
 ```
