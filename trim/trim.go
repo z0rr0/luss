@@ -46,6 +46,7 @@ type CustomURL struct {
     NotDirect bool       `bson:"ndr"`
     Spam      float64    `bson:"spam"`
     Created   time.Time  `bson:"ts"`
+    Modified  time.Time  `bson:"mod"`
 }
 
 // RequestForm is a structure of data from user's add-request.
@@ -154,7 +155,7 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     }
     coll := conn.C(db.Colls["urls"])
     cu := &CustomURL{}
-    err = coll.FindId(url).One(cu)
+    err = coll.Find(bson.M{"_id": url, "active": true}).One(cu)
     if err != nil {
         return nil, err
     }
@@ -182,6 +183,7 @@ func GetShort(reqf *RequestForm, c *conf.Config) (*CustomURL, error) {
     if err != nil {
         return nil, err
     }
+    now := time.Now().UTC()
     cu := &CustomURL{Short: short,
         Active:    true,
         Project:   reqf.Project,
@@ -190,7 +192,8 @@ func GetShort(reqf *RequestForm, c *conf.Config) (*CustomURL, error) {
         TTL:       reqf.TTLp,
         NotDirect: false,
         Spam:      0,
-        Created:   time.Now().UTC(),
+        Created:   now,
+        Modified:  now,
     }
     return cu, coll.Insert(cu)
 }

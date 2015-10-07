@@ -14,8 +14,8 @@
   "created": ISODate()             // date of creation
 }
 
-db.users.ensureIndex({"name": 1}, {"unique": 1})
-db.users.ensureIndex({"token": 1, "role": 1})
+db.users.ensureIndex({"token": 1}, {"unique": 1})
+db.users.ensureIndex({"role": 1, "name": 1})
 ```
 
 **db.locks** - collection to control common locks
@@ -26,6 +26,7 @@ db.users.ensureIndex({"token": 1, "role": 1})
   "locked": false,                 // mutex flag
 }
 
+// test collection is used during test ping.
 db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 ```
 
@@ -44,10 +45,12 @@ db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
   "ndr": false,                    // no direct redirect
   "spam": 0.5,                     // smap coefficient
   "ts": ISODate()                  // date of creation
+  "mod": ISODate()                 // date of modification
 }
 
 db.urls.ensureIndex({"_id": 1, "active": 1}, {"unique": 1})
-db.urls.ensureIndex({"prj": 1, "u": 1})
+db.urls.ensureIndex({"prj": 1, "active": 1, "u": 1})
+db.urls.ensureIndex({"ttl": 1, "active": 1})
 ```
 
 **db.ustats** - information about URLs statistics

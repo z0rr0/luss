@@ -159,24 +159,25 @@ func (c *Configuration) URLCleaner() {
             return
         }
         coll := conn.C(urlsC)
-        info, err := coll.RemoveAll(cond)
+        info, err := coll.UpdateAll(cond, bson.M{"active": false, "mod": time.Now().UTC()})
         if err != nil {
             LoggerError.Printf("can't finish cleanup: %v", err)
             return
         }
-        LoggerInfo.Printf("URLCleaner removed %v item(s)", info.Removed)
+        LoggerInfo.Printf("URLCleaner disabled %v item(s)", info.Updated)
     }
     for {
         select {
         case <-time.After(c.Conf.Workers.CleanD):
-            clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}})
+            clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}, "active": true})
         case p := <-c.Clean:
-            clean(bson.M{"prj": p})
+            clean(bson.M{"prj": p, "active": true})
         }
     }
 }
 
-// RunWorkers runs workers goroutines
+// RunWorkers runs workers goroutines to handled
+// statistics saving and callbacks requests.
 func (c *Configuration) RunWorkers() {
     c.Conf.Workers.ChStats = make(chan string, c.Conf.Workers.BufStats)
     c.Conf.Workers.ChCb = make(chan string, c.Conf.Workers.BufCb)
