@@ -24,6 +24,8 @@ const (
     ReleaseMode = 0
     // DebugMode turns on debug mode
     DebugMode = 1
+    // cleanBuf is buffer size of projects' cleanup calls.
+    cleanBuf = 5
 )
 
 var (
@@ -45,7 +47,6 @@ var (
 // It is used as a singleton.
 type Configuration struct {
     Conf   *conf.Config
-    Clean  chan string
     Logger *log.Logger
 }
 
@@ -128,7 +129,7 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     if perr != nil {
         return nil, perr
     }
-    cf.Pool = pool
+    cf.Pool, cf.Clean = pool, make(chan string, cleanBuf)
     cf.Db.Logger = LoggerError
     return cf, nil
 }
@@ -140,7 +141,7 @@ func InitConfig(filename string, debug bool) error {
         return err
     }
     // common configuration
-    Cfg = &Configuration{Conf: cf, Logger: LoggerError, Clean: make(chan string)}
+    Cfg = &Configuration{Conf: cf, Logger: LoggerError}
     go Cfg.RunWorkers()
     go Cfg.URLCleaner()
     return checkDbConnection(Cfg.Conf)
@@ -189,7 +190,7 @@ func (c *Configuration) URLCleaner() {
             return
         }
         coll := conn.C(urlsC)
-        info, err := coll.UpdateAll(cond, bson.M{"active": false, "mod": time.Now().UTC()})
+        info, err := coll.UpdateAll(cond, bson.M{"$set": bson.M{"active": false, "mod": time.Now().UTC()}})
         if err != nil {
             LoggerError.Printf("can't finish cleanup: %v", err)
             return
@@ -200,7 +201,7 @@ func (c *Configuration) URLCleaner() {
         select {
         case <-time.After(c.Conf.Workers.CleanD):
             clean(bson.M{"ttl": bson.M{"$lt": time.Now().UTC()}, "active": true})
-        case p := <-c.Clean:
+        case p := <-c.Conf.Clean:
             clean(bson.M{"prj": p, "active": true})
         }
     }

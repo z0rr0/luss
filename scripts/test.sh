@@ -25,21 +25,21 @@ BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
 "test" \
-"users" \
 "db" \
 "conf" \
 "trim" \
 "lru" \
+"prj" \
 )
 
 PACKAGES_CHECK=( \
-"users" \
 "test" \
 "conf" \
 "db" \
 "trim" \
 "httph" \
 "lru" \
+"prj" \
 )
 
 if [ -z "$GOPATH" ]; then

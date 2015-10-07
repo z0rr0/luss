@@ -88,6 +88,7 @@ type Config struct {
     Cache    cacheCfg `json:"cache"`
     Workers  workers
     Pool     *hashq.HashQ
+    Clean    chan string
 }
 
 // ConnCap returns a recommended connections capacity.

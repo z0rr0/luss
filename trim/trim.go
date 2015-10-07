@@ -106,7 +106,7 @@ func LockColls(name string, conn *db.Conn) error {
 // UnlockColls removes a lock recored from name-collection.
 func UnlockColls(name string, conn *db.Conn) error {
     coll := conn.C(db.Colls["locks"])
-    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"locked": false})
+    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"$set": bson.M{"locked": false}})
 }
 
 // FindShort checks that url exists and returns it.

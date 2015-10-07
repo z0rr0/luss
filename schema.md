@@ -59,32 +59,24 @@ db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 {
   "_id": ObjectId(),               // record ID
   "name": "Project1"               // project's name
-  "domain": "http://domain.com",   // custom domain
   "users": [                       // info about users
     {
-      "user": "User1",             // user's name
+      "name": "User1",             // user's name
       "key": "sercrete token",     // secrete token
       "role": "owner",             // user's role
       "ts": Date()                 // date of modification
     },
     {
-      "user": "User2",
+      "name": "User2",
       "key": "sercrete token",
       "role": "writer",
       "ts": Date()
     },
-  ]
-  "callbacks": [                   // callack methods
-    {
-      "method": "GET",             // request type
-      "url": "http//callback.com", // callback url
-      "params": {"a": 123}         // custom parameters
-    },
   ],
   "modified": ISODate(),           // date of modification
-  "created": ISODate()             // date of creation
 }
 
 db.projects.ensureIndex({"name": 1}, {"unique": 1})
 db.projects.ensureIndex({"users.key": 1}, {"unique": 1})
+db.projects.ensureIndex({"users.name": 1})
 ```
