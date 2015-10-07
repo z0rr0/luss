@@ -74,7 +74,6 @@ func main() {
         fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
         return
     }
-    fmt.Println(*config)
     // configuration initialization
     if *admin != "" {
         cf, err := utils.InitFileConfig(*config, *debug)
