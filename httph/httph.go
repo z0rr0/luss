@@ -44,6 +44,7 @@ type ReqJSON struct {
 type RespJSON struct {
     User string        `json:"user"`
     URLs []urlRespJSON `json:"urls"`
+    N    int           `json:"n"`
 }
 
 // UserRawRequest is structure of raw user's request data.
@@ -180,6 +181,7 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
     resp := &RespJSON{
         User: uReqs[0].User.Name,
         URLs: make([]urlRespJSON, n),
+        N:    0,
     }
     for i := range uReqs {
         now := time.Now().UTC()
@@ -209,6 +211,7 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
         }
         resp.URLs[i].Original = cu.Original
         resp.URLs[i].Short = cu.Short
+        resp.N++
     }
     err = resp.Marshall(w)
     if err != nil {
