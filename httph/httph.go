@@ -125,14 +125,14 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
         utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
     }
-    uReq, now := uReqs[0], time.Now().UTC()
+    now := time.Now().UTC()
     cu := &trim.CustomURL{
         // Short:   "",
         Active:    true,
-        Project:   uReq.Project.Name,
-        Original:  uReq.URL.String(),
-        User:      uReq.User.Name,
-        TTL:       uReq.TTL,
+        Project:   uReqs[0].Project.Name,
+        Original:  uReqs[0].URL.String(),
+        User:      uReqs[0].User.Name,
+        TTL:       uReqs[0].TTL,
         NotDirect: false,
         Spam:      0,
         Created:   now,
