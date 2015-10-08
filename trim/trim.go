@@ -11,10 +11,8 @@ import (
     "fmt"
     "log"
     "math"
-    "net/http"
     "os"
     "sort"
-    "strconv"
     "time"
 
     "github.com/z0rr0/luss/conf"
@@ -33,6 +31,8 @@ var (
     basis = len(Alphabet)
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/trim]: ", log.Ldate|log.Ltime|log.Lshortfile)
+    // ErrPartlyDone is a error when the package-task was completed only partly.
+    ErrPartlyDone = errors.New("task is not completed")
 )
 
 // CustomURL stores info about user's URL.
@@ -49,43 +49,9 @@ type CustomURL struct {
     Modified  time.Time  `bson:"mod"`
 }
 
-// RequestForm is a structure of data from user's add-request.
-type RequestForm struct {
-    Original string `json:"url"`
-    Project  string `json:"project"`
-    Token    string `json:"token"`
-    TTL      int    `json:"ttl"`
-    User     string
-    TTLp     *time.Time
-}
-
 // String returns a representative form of CustomURL.
 func (c *CustomURL) String() string {
     return fmt.Sprintf("%s => %s", c.Short, c.Original)
-}
-
-// CheckReqForm parses HTTP request and returns RequestForm pointer.
-func CheckReqForm(r *http.Request, c *conf.Config) (*RequestForm, error) {
-    var (
-        ttl int
-        err error
-    )
-    url := r.PostFormValue("url")
-    if url == "" {
-        return nil, errors.New("url parameter not found")
-    }
-    ttls := r.PostFormValue("ttl")
-    if ttls != "" {
-        ttl, err = strconv.Atoi(ttls)
-        if err != nil {
-            return nil, err
-        }
-    }
-    // p := r.PostFormValue("project")
-    // t := r.PostFormValue("token")
-    t, p, u := "token", "default", "anonymous"
-    // check project's settings and auth, set TTLp
-    return &RequestForm{Original: url, Project: p, Token: t, TTL: ttl, User: u, TTLp: nil}, nil
 }
 
 // LockColls adds a lock recored to name-collection
@@ -134,37 +100,36 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
 }
 
 // GetShort returns a new short URL.
-// func GetShort(url, user, project string, ttl *time.Time, c *conf.Config) (*CustomURL, error) {
-func GetShort(reqf *RequestForm, c *conf.Config) (*CustomURL, error) {
+func GetShort(c *conf.Config, cu ...*CustomURL) error {
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
-        return nil, err
+        return err
     }
     coll := conn.C(db.Colls["urls"])
     // lock
     err = LockColls("urls", conn)
     if err != nil {
-        return nil, err
+        return err
     }
     defer UnlockColls("urls", conn)
     short, err := getMax(coll)
     if err != nil {
-        return nil, err
+        return err
     }
-    now := time.Now().UTC()
-    cu := &CustomURL{Short: short,
-        Active:    true,
-        Project:   reqf.Project,
-        Original:  reqf.Original,
-        User:      reqf.User,
-        TTL:       reqf.TTLp,
-        NotDirect: false,
-        Spam:      0,
-        Created:   now,
-        Modified:  now,
+    for i := range cu {
+        cu[i].Short = short
+        err = coll.Insert(cu[i])
+        if err != nil {
+            Logger.Printf("link insert error [%v]: %v", i, err)
+            if i > 0 {
+                return ErrPartlyDone
+            }
+            return err
+        }
+        short = Inc(short)
     }
-    return cu, coll.Insert(cu)
+    return nil
 }
 
 // getMax returns a max short URLs, so it should be called

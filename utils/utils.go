@@ -9,6 +9,7 @@ import (
     "fmt"
     "io/ioutil"
     "log"
+    "net/url"
     "os"
     "time"
 
@@ -16,6 +17,7 @@ import (
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
     "github.com/z0rr0/luss/lru"
+    "golang.org/x/net/idna"
     "gopkg.in/mgo.v2/bson"
 )
 
@@ -229,4 +231,18 @@ func (c *Configuration) RunWorkers() {
         }()
     }
     LoggerDebug.Println("RunWorkers is started")
+}
+
+// ParseURL parses rawurl into a URL structure and checks/converts IDNA hostname.
+func ParseURL(rawurl string) (*url.URL, error) {
+    url, err := url.ParseRequestURI(rawurl)
+    if err != nil {
+        return nil, err
+    }
+    host, err := idna.ToASCII(url.Host)
+    if err != nil {
+        return nil, err
+    }
+    url.Host = host
+    return url, nil
 }

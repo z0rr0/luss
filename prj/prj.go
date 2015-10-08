@@ -96,6 +96,7 @@ func EqualBytes(x, y []byte) bool {
 }
 
 // CheckToken verifies incoming token, checks length and hash.
+// It returns the 2nd (stored in DB) token part and error value.
 func CheckToken(token string, c *conf.Config) (string, error) {
     l := len(token)
     if l == 0 {
@@ -120,22 +121,22 @@ func CheckToken(token string, c *conf.Config) (string, error) {
 }
 
 // CheckUser verifies a token and returns the appropriate User.
-func CheckUser(token string, c *conf.Config) (*User, error) {
+func CheckUser(token string, c *conf.Config) (*Project, *User, error) {
     var u *User
     t, err := CheckToken(token, c)
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
     coll := conn.C(db.Colls["projects"])
     p := &Project{}
     err = coll.Find(bson.M{"users.key": t}).One(p)
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
     for i := range p.Users {
         if p.Users[i].Key == t {
@@ -143,7 +144,10 @@ func CheckUser(token string, c *conf.Config) (*User, error) {
             break
         }
     }
-    return u, nil
+    if u == nil {
+        err = errors.New("user is not found")
+    }
+    return p, u, err
 }
 
 // CreateProject creates new project.

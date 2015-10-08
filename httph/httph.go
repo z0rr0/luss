@@ -10,15 +10,88 @@ import (
     "fmt"
     "net/http"
     "net/url"
+    "strconv"
     "time"
 
     "github.com/z0rr0/luss/conf"
     "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/prj"
     "github.com/z0rr0/luss/trim"
     "github.com/z0rr0/luss/utils"
-    "golang.org/x/net/idna"
     "gopkg.in/mgo.v2/bson"
 )
+
+// ReqJSON is structure of user's JSON request.
+type ReqJSON struct {
+    Original string `json:"url"`
+    Project  string `json:"project"`
+    TTL      int    `json:"ttl"`
+}
+
+// UserRawRequest is structure of raw user's request data.
+type UserRawRequest struct {
+    Token string
+    Param string
+    URL   *url.URL
+    TTL   *time.Time
+}
+
+// UserRequest is structure of verified user's request data.
+type UserRequest struct {
+    User    *prj.User
+    Project *prj.Project
+    URL     *url.URL
+    Param   string
+    TTL     *time.Time
+}
+
+func VerifyUserRawRequests(reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
+    if len(reqs) == 0 {
+        return nil, errors.New("empty user request")
+    }
+    // TODO: check anonymous here
+    // check token
+    p, u, err := prj.CheckUser(reqs[0].Token, c)
+    if err != nil {
+        return nil, err
+    }
+    result := make([]UserRequest, len(reqs))
+    for i := range reqs {
+        result[i] = UserRequest{
+            User:    u,
+            Project: p,
+            URL:     reqs[i].URL,
+            TTL:     reqs[i].TTL,
+            Param:   reqs[i].Param,
+        }
+    }
+    return result, nil
+}
+
+// TODO: ParseJSONRequest...
+
+// ParseLinkRequest parses HTTP request and returns RequestForm pointer.
+func ParseLinkRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
+    var ttl *time.Time
+    rawurl := r.PostFormValue("url")
+    if rawurl == "" {
+        return nil, errors.New("url parameter not found")
+    }
+    url, err := utils.ParseURL(rawurl)
+    if err != nil {
+        return nil, err
+    }
+    if t := r.PostFormValue("ttl"); t != "" {
+        ti, err := strconv.Atoi(t)
+        if err != nil {
+            return nil, err
+        }
+        expired := time.Now().Add(time.Duration(ti) * time.Hour)
+        ttl = &expired
+    }
+    uReqs := []UserRawRequest{UserRawRequest{URL: url, Token: r.PostFormValue("token"), TTL: ttl, Param: r.PostFormValue("cbp")}}
+    return VerifyUserRawRequests(uReqs, c)
+}
 
 // TestWrite writes temporary data to the database.
 func TestWrite(c *conf.Config) error {
@@ -47,30 +120,32 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    reqf, err := trim.CheckReqForm(r, utils.Cfg.Conf)
+    uReqs, err := ParseLinkRequest(r, utils.Cfg.Conf)
     if err != nil {
         utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
     }
-    url, err := url.ParseRequestURI(reqf.Original)
-    if err != nil {
-        return http.StatusBadRequest, "bad request - invalid URL"
+    uReq, now := uReqs[0], time.Now().UTC()
+    cu := &trim.CustomURL{
+        // Short:   "",
+        Active:    true,
+        Project:   uReq.Project.Name,
+        Original:  uReq.URL.String(),
+        User:      uReq.User.Name,
+        TTL:       uReq.TTL,
+        NotDirect: false,
+        Spam:      0,
+        Created:   now,
+        Modified:  now,
     }
-    // ascii raw URL
-    host, err := idna.ToASCII(url.Host)
+    err = trim.GetShort(utils.Cfg.Conf, cu)
     if err != nil {
-        return http.StatusBadRequest, "bad request - bad domain"
-    }
-    url.Host = host
-    reqf.Original = url.String()
-    // incomming URL is Ok, try to trim and save
-    short, err := trim.GetShort(reqf, utils.Cfg.Conf)
-    if err != nil {
+        utils.LoggerError.Println(err)
         return http.StatusInternalServerError, "internal error"
     }
     // log
-    utils.LoggerDebug.Println("passed:", short.String())
-    fmt.Fprintln(w, short.Short)
+    utils.LoggerDebug.Printf("passed [%v] => [%v]", cu.Original, cu.Short)
+    fmt.Fprintf(w, cu.Short)
     return http.StatusOK, ""
 }
 
