@@ -9,17 +9,18 @@ import (
     "crypto/tls"
     "crypto/x509"
     "errors"
+    "fmt"
     "io/ioutil"
     "log"
     "net"
     "os"
-    // "runtime/debug"
     "sync"
     "time"
 
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/conf"
     "gopkg.in/mgo.v2"
+    "gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -34,6 +35,8 @@ var (
         "ustats":   "ustats",
         "projects": "projects",
     }
+    // ErrDbDuplicate is error of db duplicate error.
+    ErrDbDuplicate = errors.New("db duplicate item")
 )
 
 // Conn is database connection structure.
@@ -253,4 +256,25 @@ func CleanCollection(c *conf.Config, names ...string) error {
         }
     }
     return err
+}
+
+// LockColls adds a lock recored to name-collection
+func LockColls(name string, conn *Conn) error {
+    const maxAttempts = 3
+    delay := time.Duration(10 * time.Millisecond)
+    coll := conn.C(Colls["locks"])
+    for i := 0; i < maxAttempts; i++ {
+        _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
+        if err == nil {
+            return nil
+        }
+        time.Sleep(time.Duration(i+1) * delay)
+    }
+    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxAttempts)
+}
+
+// UnlockColls removes a lock recored from name-collection.
+func UnlockColls(name string, conn *Conn) error {
+    coll := conn.C(Colls["locks"])
+    return coll.Update(bson.M{"_id": name}, bson.M{"$set": bson.M{"locked": false}})
 }

@@ -79,6 +79,25 @@ func checkDbConnection(cfg *conf.Config) error {
     return err
 }
 
+// InitDefaultProject creates default system project.
+func InitDefaultProject(c *conf.Config) error {
+    conn, err := db.GetConn(c)
+    defer db.ReleaseConn(conn)
+    if err != nil {
+        return err
+    }
+    coll := conn.C(db.Colls["projects"])
+    data := bson.M{
+        "$setOnInsert": bson.M{
+            "name":     conf.AnonProject.Name,
+            "users":    conf.AnonProject.Users,
+            "modified": time.Now().UTC(),
+        },
+    }
+    _, err = coll.Upsert(bson.M{"name": conf.DefaultProject}, data)
+    return err
+}
+
 func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     Debug(debug)
     cf, err := conf.ParseConfig(filename)
@@ -107,6 +126,12 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         err = errorGen("incorrect or empty value", "workers.bufstats")
     case cf.Workers.BufCb < 1:
         err = errorGen("incorrect or empty value", "workers.bufcb")
+    case cf.Projects.MaxSpam < 1:
+        err = errorGen("incorrect or empty value", "projects.maxspam")
+    case cf.Projects.CbLength < 1:
+        err = errorGen("incorrect or empty value", "projects.cblength")
+    case cf.Projects.MaxName < 2:
+        err = errorGen("incorrect or empty value", "projects.maxname")
     }
     if err != nil {
         return nil, err
@@ -132,6 +157,10 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         return nil, perr
     }
     cf.Pool, cf.Clean = pool, make(chan string, cleanBuf)
+    err = InitDefaultProject(cf)
+    if err != nil {
+        return nil, err
+    }
     cf.Db.Logger = LoggerError
     return cf, nil
 }

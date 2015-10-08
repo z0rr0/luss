@@ -20,12 +20,9 @@
   "projects": {                   // project's settings:
     "maxspam": 5,                 //   max spam percents
     "cblength": 255,              //   max length of callback parameter
-    "maxname": 64,                //   max length of project's name
-    "anonymous": {                //   settings of anonymous projects
-      "allow": true,              //     allow anonymous projects
-      "name": "default",          //     default anonymous project's name
-      "user": "anonymous"         //     default user name in anonymous projects
-    }
+    "cballow": true,              //   allow callback responses
+    "maxname": 255,               //   max length of project's name
+    "anonymous": true             //   allow anonymous requests
   },
   "database": {                   // MongoDB configuration:
     "hosts": ["localhost"],       //   servers list

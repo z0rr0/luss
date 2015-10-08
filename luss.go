@@ -81,7 +81,7 @@ func main() {
             utils.LoggerError.Panicf("init config error [%v]", err)
         }
         if u, err := prj.CreateAdmin(*admin, cf); err != nil {
-            utils.LoggerError.Panicf("create admin error [%v]", err)
+            utils.LoggerError.Panicf("create admin error [%v]\n\tProbably this user already exists.", err)
         } else {
             utils.LoggerInfo.Printf("Administrator is created:\n\tname: %v\n\ttoken: %v\n", u.Name, u.Secret)
         }

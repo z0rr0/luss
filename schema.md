@@ -19,7 +19,7 @@
   "cb": ["GET", "http://a.ru", "p"] // custom callback settings
 }
 
-db.urls.ensureIndex({"_id": 1, "active": 1}, {"unique": 1})
+db.urls.ensureIndex({"_id": 1}, {"unique": 1})
 db.urls.ensureIndex({"prj": 1, "active": 1, "u": 1})
 db.urls.ensureIndex({"ttl": 1, "active": 1})
 ```

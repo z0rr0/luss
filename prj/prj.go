@@ -20,39 +20,10 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
-const (
-    // maxUserNameLen is maximum length of user name
-    maxUserNameLen = 255
-    // AnonName is name of anonymous user.
-    AnonName = "anonymous"
-    // DefaultProject is name of default project.
-    DefaultProject = "system"
-)
-
 var (
     // Logger is a logger of important messages.
     Logger = log.New(os.Stderr, "LOGGER [luss/prj]: ", log.Ldate|log.Ltime|log.Lshortfile)
-    // ErrDbDuplicate is error of db duplicate error.
-    ErrDbDuplicate = errors.New("db duplicate item")
 )
-
-// User is structure of user's info.
-type User struct {
-    Name    string    `bson:"name"`
-    Key     string    `bson:"key"`
-    Role    string    `bson:"role"`
-    Created time.Time `bson:"ts"`
-    Secret  string    `bson:",omitempty"`
-}
-
-// Project is structure of project's info.
-type Project struct {
-    ID          bson.ObjectId `bson:"_id"`
-    Name        string        `bson:"name"`
-    Users       []User        `bson:"users"`
-    Modified    time.Time     `bson:"modified"`
-    IsAnonymous bool
-}
 
 // getRndBytes generates random bytes.
 func getRndBytes(n int) ([]byte, error) {
@@ -121,8 +92,11 @@ func CheckToken(token string, c *conf.Config) (string, error) {
 }
 
 // CheckUser verifies a token and returns the appropriate User.
-func CheckUser(token string, c *conf.Config) (*Project, *User, error) {
-    var u *User
+func CheckUser(token string, c *conf.Config) (*conf.Project, *conf.User, error) {
+    var u *conf.User
+    if (token == "") && c.Projects.Anonymous {
+        return &conf.AnonProject, &conf.AnonUser, nil
+    }
     t, err := CheckToken(token, c)
     if err != nil {
         return nil, nil, err
@@ -133,7 +107,7 @@ func CheckUser(token string, c *conf.Config) (*Project, *User, error) {
         return nil, nil, err
     }
     coll := conn.C(db.Colls["projects"])
-    p := &Project{}
+    p := &conf.Project{}
     err = coll.Find(bson.M{"users.key": t}).One(p)
     if err != nil {
         return nil, nil, err
@@ -151,7 +125,7 @@ func CheckUser(token string, c *conf.Config) (*Project, *User, error) {
 }
 
 // CreateProject creates new project.
-func CreateProject(p *Project, c *conf.Config) error {
+func CreateProject(p *conf.Project, c *conf.Config) error {
     // TODO: check project name length
     var (
         p1, p2 string
@@ -178,7 +152,7 @@ func CreateProject(p *Project, c *conf.Config) error {
     coll := conn.C(db.Colls["projects"])
     err = coll.Insert(p)
     if mgo.IsDup(err) {
-        return ErrDbDuplicate
+        return db.ErrDbDuplicate
     }
     for i := range p.Users {
         p.Users[i].Secret = secrets[i]
@@ -206,7 +180,7 @@ func DeleteProject(name string, c *conf.Config, force bool) error {
 }
 
 // UpdateProject updates project's users info, resets all their credentials.
-func UpdateProject(name string, users []User, c *conf.Config) error {
+func UpdateProject(name string, users []conf.User, c *conf.Config) error {
     var (
         p1, p2 string
         keyErr error
@@ -240,40 +214,26 @@ func UpdateProject(name string, users []User, c *conf.Config) error {
 }
 
 // CreateAdmin creates new global admin user.
-func CreateAdmin(name string, c *conf.Config) (*User, error) {
+func CreateAdmin(name string, c *conf.Config) (*conf.User, error) {
     p1, p2, err := genToken(c)
     if err != nil {
         return nil, err
     }
-    // ignore errors
-    err = CreateDefaultProject(c)
     if err != nil {
         return nil, err
     }
-    u := &User{Name: name, Key: p2, Role: "admin", Created: time.Now().UTC()}
+    u := &conf.User{Name: name, Key: p2, Role: "admin", Created: time.Now().UTC()}
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
         return nil, err
     }
     coll := conn.C(db.Colls["projects"])
-    err = coll.Update(bson.M{"name": DefaultProject, "users.name": bson.M{"$ne": name}},
+    err = coll.Update(bson.M{"name": conf.DefaultProject, "users.name": bson.M{"$ne": name}},
         bson.M{"$push": bson.M{"users": u}, "$set": bson.M{"modified": time.Now().UTC()}})
     if err != nil {
         return nil, err
     }
     u.Secret = p1 + p2
     return u, nil
-}
-
-// CreateDefaultProject creates default system project.
-func CreateDefaultProject(c *conf.Config) error {
-    conn, err := db.GetConn(c)
-    defer db.ReleaseConn(conn)
-    if err != nil {
-        return err
-    }
-    coll := conn.C(db.Colls["projects"])
-    _, err = coll.Upsert(bson.M{"name": DefaultProject}, bson.M{"$set": bson.M{"name": DefaultProject}})
-    return err
 }

@@ -17,12 +17,41 @@ import (
     "github.com/z0rr0/hashq"
     "github.com/z0rr0/luss/lru"
     "gopkg.in/mgo.v2"
+    "gopkg.in/mgo.v2/bson"
 )
 
 const (
     // SaltsLen in minimal recommended salt length.
     SaltsLen = 16
+    // AnonName is name of anonymous user.
+    AnonName = "anonymous"
+    // DefaultProject is name of default project.
+    DefaultProject = "system"
 )
+
+var (
+    // AnonUser is anonymous user
+    AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
+    // AnonProject is system project for administrative and anonymous users.
+    AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
+)
+
+// User is structure of user's info.
+type User struct {
+    Name    string    `bson:"name"`
+    Key     string    `bson:"key"`
+    Role    string    `bson:"role"`
+    Created time.Time `bson:"ts"`
+    Secret  string    `bson:",omitempty"`
+}
+
+// Project is structure of project's info.
+type Project struct {
+    ID       bson.ObjectId `bson:"_id"`
+    Name     string        `bson:"name"`
+    Users    []User        `bson:"users"`
+    Modified time.Time     `bson:"modified"`
+}
 
 // security contains main security settings.
 type security struct {
@@ -81,12 +110,22 @@ type workers struct {
     ChCb     chan string
 }
 
+// projects is projects' settings.
+type projects struct {
+    MaxSpam   int  `json:"maxspam"`
+    CbLength  int  `json:"cblength"`
+    CbAllow   bool `json:"cballow"`
+    MaxName   int  `json:"maxname"`
+    Anonymous bool `json:"anonymous"`
+}
+
 // Config is main configuration storage.
 type Config struct {
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
-    Workers  workers
+    Workers  workers  `json:"workers"`
+    Projects projects `json:"projects"`
     Pool     *hashq.HashQ
     Clean    chan string
 }

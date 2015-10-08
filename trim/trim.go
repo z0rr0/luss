@@ -54,27 +54,6 @@ func (c *CustomURL) String() string {
     return fmt.Sprintf("%s => %s", c.Short, c.Original)
 }
 
-// LockColls adds a lock recored to name-collection
-func LockColls(name string, conn *db.Conn) error {
-    const maxAttempts = 3
-    delay := time.Duration(10 * time.Millisecond)
-    coll := conn.C(db.Colls["locks"])
-    for i := 0; i < maxAttempts; i++ {
-        _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
-        if err == nil {
-            return nil
-        }
-        time.Sleep(time.Duration(i+1) * delay)
-    }
-    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", db.Colls["locks"], maxAttempts)
-}
-
-// UnlockColls removes a lock recored from name-collection.
-func UnlockColls(name string, conn *db.Conn) error {
-    coll := conn.C(db.Colls["locks"])
-    return coll.Update(bson.M{"_id": name, "locked": true}, bson.M{"$set": bson.M{"locked": false}})
-}
-
 // FindShort checks that url exists and returns it.
 func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     // look in the cache
@@ -108,11 +87,11 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     }
     coll := conn.C(db.Colls["urls"])
     // lock
-    err = LockColls("urls", conn)
+    err = db.LockColls(db.Colls["urls"], conn)
     if err != nil {
         return err
     }
-    defer UnlockColls("urls", conn)
+    defer db.UnlockColls(db.Colls["urls"], conn)
     short, err := getMax(coll)
     if err != nil {
         return err

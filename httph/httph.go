@@ -38,19 +38,19 @@ type UserRawRequest struct {
 
 // UserRequest is structure of verified user's request data.
 type UserRequest struct {
-    User    *prj.User
-    Project *prj.Project
+    User    *conf.User
+    Project *conf.Project
     URL     *url.URL
     Param   string
     TTL     *time.Time
 }
 
+// VerifyUserRawRequests validates user's data.
 func VerifyUserRawRequests(reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
     if len(reqs) == 0 {
         return nil, errors.New("empty user request")
     }
-    // TODO: check anonymous here
-    // check token
+    // check user credentials (it can be anonymous)
     p, u, err := prj.CheckUser(reqs[0].Token, c)
     if err != nil {
         return nil, err
