@@ -6,8 +6,10 @@
 package httph
 
 import (
+    "encoding/json"
     "errors"
     "fmt"
+    "io"
     "net/http"
     "net/url"
     "strconv"
@@ -21,19 +23,45 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
+type urlReqJSON struct {
+    Original string `json:"url"`
+    TTL      int    `json:"ttl"`
+    Param    string `json:"p"`
+}
+
+type urlRespJSON struct {
+    Original string `json:"o"`
+    Short    string `json:"s"`
+}
+
 // ReqJSON is structure of user's JSON request.
 type ReqJSON struct {
-    Original string `json:"url"`
-    Project  string `json:"project"`
-    TTL      int    `json:"ttl"`
+    Token string       `json:"token"`
+    URLs  []urlReqJSON `json:"urls"`
+}
+
+// ReqJSON is structure of JSON response.
+type RespJSON struct {
+    User string        `json:"user"`
+    URLs []urlRespJSON `json:"urls"`
 }
 
 // UserRawRequest is structure of raw user's request data.
 type UserRawRequest struct {
-    Token string
     Param string
     URL   *url.URL
     TTL   *time.Time
+}
+
+// Marshall encodes JSON response.
+func (r *RespJSON) Marshall(w http.ResponseWriter) error {
+    w.Header().Set("Content-Type", "application/json")
+    b, err := json.Marshal(r)
+    if err != nil {
+        return err
+    }
+    fmt.Fprintf(w, "%s", b)
+    return nil
 }
 
 // UserRequest is structure of verified user's request data.
@@ -46,12 +74,12 @@ type UserRequest struct {
 }
 
 // VerifyUserRawRequests validates user's data.
-func VerifyUserRawRequests(reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
+func VerifyUserRawRequests(token string, reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
     if len(reqs) == 0 {
         return nil, errors.New("empty user request")
     }
     // check user credentials (it can be anonymous)
-    p, u, err := prj.CheckUser(reqs[0].Token, c)
+    p, u, err := prj.CheckUser(token, c)
     if err != nil {
         return nil, err
     }
@@ -68,7 +96,35 @@ func VerifyUserRawRequests(reqs []UserRawRequest, c *conf.Config) ([]UserRequest
     return result, nil
 }
 
-// TODO: ParseJSONRequest...
+// ParseJSONRequest parses HTTP JSON pack request.
+func ParseJSONRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
+    var ttl *time.Time
+    decoder := json.NewDecoder(r.Body)
+    req := &ReqJSON{}
+    err := decoder.Decode(req)
+    if (err != nil) && (err != io.EOF) {
+        return nil, err
+    }
+    uReqs := make([]UserRawRequest, len(req.URLs))
+    for i := range req.URLs {
+        url, err := utils.ParseURL(req.URLs[i].Original)
+        if err != nil {
+            return nil, err
+        }
+        if req.URLs[i].TTL > 0 {
+            expired := time.Now().Add(time.Duration(req.URLs[i].TTL) * time.Hour)
+            ttl = &expired
+        } else {
+            ttl = nil
+        }
+        uReqs[i] = UserRawRequest{
+            URL:   url,
+            Param: req.URLs[i].Param,
+            TTL:   ttl,
+        }
+    }
+    return VerifyUserRawRequests(req.Token, uReqs, c)
+}
 
 // ParseLinkRequest parses HTTP request and returns RequestForm pointer.
 func ParseLinkRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
@@ -89,8 +145,14 @@ func ParseLinkRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
         expired := time.Now().Add(time.Duration(ti) * time.Hour)
         ttl = &expired
     }
-    uReqs := []UserRawRequest{UserRawRequest{URL: url, Token: r.PostFormValue("token"), TTL: ttl, Param: r.PostFormValue("cbp")}}
-    return VerifyUserRawRequests(uReqs, c)
+    uReqs := []UserRawRequest{
+        UserRawRequest{
+            URL:   url,
+            TTL:   ttl,
+            Param: r.PostFormValue("p"),
+        },
+    }
+    return VerifyUserRawRequests(r.PostFormValue("token"), uReqs, c)
 }
 
 // TestWrite writes temporary data to the database.
@@ -109,9 +171,51 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    t := r.Header["Content-Type"]
-    fmt.Println(len(t), t)
-    fmt.Fprintf(w, "data=%v", "ok")
+    uReqs, err := ParseJSONRequest(r, utils.Cfg.Conf)
+    if err != nil {
+        utils.LoggerError.Println(err)
+        return http.StatusBadRequest, "bad request"
+    }
+    n := len(uReqs)
+    resp := &RespJSON{
+        User: uReqs[0].User.Name,
+        URLs: make([]urlRespJSON, n),
+    }
+    for i := range uReqs {
+        now := time.Now().UTC()
+        cu := &trim.CustomURL{
+            // Short:   "",
+            Active:    true,
+            Project:   uReqs[i].Project.Name,
+            Original:  uReqs[i].URL.String(),
+            User:      uReqs[i].User.Name,
+            TTL:       uReqs[i].TTL,
+            NotDirect: false,
+            Spam:      0,
+            Created:   now,
+            Modified:  now,
+        }
+        err = trim.GetShort(utils.Cfg.Conf, cu)
+        if err != nil {
+            utils.LoggerError.Println(err)
+            if i > 0 {
+                // write JSON, because there were successful operations
+                err = resp.Marshall(w)
+                if err != nil {
+                    utils.LoggerError.Println(err)
+                }
+            }
+            return http.StatusInternalServerError, "internal error"
+        }
+        resp.URLs[i].Original = cu.Original
+        resp.URLs[i].Short = cu.Short
+    }
+    err = resp.Marshall(w)
+    if err != nil {
+        utils.LoggerError.Println(err)
+        return http.StatusInternalServerError, "internal error"
+    }
+    utils.LoggerDebug.Printf("passed [%v] JSON items", n)
     return http.StatusOK, ""
 }
 

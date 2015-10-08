@@ -131,6 +131,9 @@ func CreateProject(p *conf.Project, c *conf.Config) error {
         p1, p2 string
         keyErr error
     )
+    if len(p.Name) > c.Projects.MaxName {
+        return errors.New("too long project name")
+    }
     // p.Users has empty key-fields
     now := time.Now().UTC()
     secrets := make([]string, len(p.Users))
