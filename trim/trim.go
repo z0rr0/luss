@@ -85,7 +85,8 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     if err != nil {
         return err
     }
-    if n := len(cu); n > c.Projects.MaxPack {
+    n := len(cu)
+    if n > c.Projects.MaxPack {
         return errors.New("too big pack")
     }
     coll := conn.C(db.Colls["urls"])
@@ -98,28 +99,14 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     if err != nil {
         return err
     }
-    // documents := []interface{}{}
+    documents := make([]interface{}, n)
     for i := range cu {
         cu[i].Short = short
-        // documents = append(documents, cu)
-        err = coll.Insert(cu[i])
-        if err != nil {
-            Logger.Printf("link insert error [%v]: %v", i, err)
-            if i > 0 {
-                return ErrPartlyDone
-            }
-            return err
-        }
+        documents[i] = cu[i]
         short = Inc(short)
     }
-
-    // tc := conn.C("test")
-    // b := []interface{}{bson.M{"a": 1}, bson.M{"a": 1}}
-    // err = tc.Insert(b...)
-    // Logger.Println(err)
-
-    // return coll.Insert(documents)
-    return nil
+    // ordered multi insert
+    return coll.Insert(documents...)
 }
 
 // getMax returns a max short URLs, so it should be called
