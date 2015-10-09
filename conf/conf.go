@@ -117,6 +117,7 @@ type projects struct {
     CbAllow   bool `json:"cballow"`
     MaxName   int  `json:"maxname"`
     Anonymous bool `json:"anonymous"`
+    MaxPack   int  `json:"maxpack"`
 }
 
 // Config is main configuration storage.

@@ -132,6 +132,8 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
         err = errorGen("incorrect or empty value", "projects.cblength")
     case cf.Projects.MaxName < 2:
         err = errorGen("incorrect or empty value", "projects.maxname")
+    case cf.Projects.MaxPack < 1:
+        err = errorGen("incorrect or empty value", "projects.maxpack")
     }
     if err != nil {
         return nil, err

@@ -40,7 +40,7 @@ type ReqJSON struct {
     URLs  []urlReqJSON `json:"urls"`
 }
 
-// ReqJSON is structure of JSON response.
+// RespJSON is structure of JSON response.
 type RespJSON struct {
     User string        `json:"user"`
     URLs []urlRespJSON `json:"urls"`

@@ -85,6 +85,9 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     if err != nil {
         return err
     }
+    if n := len(cu); n > c.Projects.MaxPack {
+        return errors.New("too big pack")
+    }
     coll := conn.C(db.Colls["urls"])
     err = db.LockColls(db.Colls["urls"], conn)
     if err != nil {
@@ -95,8 +98,10 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     if err != nil {
         return err
     }
+    // documents := []interface{}{}
     for i := range cu {
         cu[i].Short = short
+        // documents = append(documents, cu)
         err = coll.Insert(cu[i])
         if err != nil {
             Logger.Printf("link insert error [%v]: %v", i, err)
@@ -107,6 +112,13 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         }
         short = Inc(short)
     }
+
+    // tc := conn.C("test")
+    // b := []interface{}{bson.M{"a": 1}, bson.M{"a": 1}}
+    // err = tc.Insert(b...)
+    // Logger.Println(err)
+
+    // return coll.Insert(documents)
     return nil
 }
 

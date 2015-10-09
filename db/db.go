@@ -23,6 +23,12 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
+const (
+    // maxLockAttempts is a number attempts to lock a collection
+    // before an error will be returned.
+    maxLockAttempts = 7 // >= 127 ms
+)
+
 var (
     // Logger is a logger for error messages
     Logger = log.New(os.Stderr, "LOGGER [luss/db]: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -260,17 +266,17 @@ func CleanCollection(c *conf.Config, names ...string) error {
 
 // LockColls adds a lock recored to name-collection
 func LockColls(name string, conn *Conn) error {
-    const maxAttempts = 3
-    delay := time.Duration(10 * time.Millisecond)
+    delay := time.Duration(time.Millisecond)
     coll := conn.C(Colls["locks"])
-    for i := 0; i < maxAttempts; i++ {
+    for i := 0; i < maxLockAttempts; i++ {
         _, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
         if err == nil {
             return nil
         }
-        time.Sleep(time.Duration(i+1) * delay)
+        time.Sleep(delay)
+        delay *= 2
     }
-    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxAttempts)
+    return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxLockAttempts)
 }
 
 // UnlockColls removes a lock recored from name-collection.
