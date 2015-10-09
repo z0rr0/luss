@@ -7,7 +7,6 @@
 package trim
 
 import (
-    "fmt"
     "testing"
 
     // "github.com/z0rr0/luss/db"
@@ -160,14 +159,27 @@ func BenchmarkInc1(b *testing.B) {
     }
 }
 
-// 876 ns/op  160 B/op
 func BenchmarkInc2(b *testing.B) {
     x, y := "Ayzzzzzzzzz", "Az000000000"
     for i := 0; i < b.N; i++ {
         if s := Inc(x); s != y {
             b.Fatalf("bad result: %v %v", s, x)
-        } else {
-            s = fmt.Sprintf("%32s", s)
         }
+    }
+}
+
+func BenchmarkEncode1(b *testing.B) {
+    var x int64 = 9223372036854775800 // 9223372036854775807
+    for i := 0; i < b.N; i++ {
+        Encode(x)
+    }
+}
+
+func BenchmarkEncode2(b *testing.B) {
+    var x int64 = 9223372036854775800 // 9223372036854775807
+    y := Encode(x)
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        y = Inc(y)
     }
 }
