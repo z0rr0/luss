@@ -86,7 +86,6 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         return err
     }
     coll := conn.C(db.Colls["urls"])
-    // lock
     err = db.LockColls(db.Colls["urls"], conn)
     if err != nil {
         return err

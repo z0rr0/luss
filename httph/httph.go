@@ -181,8 +181,9 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
     resp := &RespJSON{
         User: uReqs[0].User.Name,
         URLs: make([]urlRespJSON, n),
-        N:    0,
+        N:    n,
     }
+    cus := make([]*trim.CustomURL, n)
     for i := range uReqs {
         now := time.Now().UTC()
         cu := &trim.CustomURL{
@@ -197,21 +198,16 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
             Created:   now,
             Modified:  now,
         }
-        err = trim.GetShort(utils.Cfg.Conf, cu)
-        if err != nil {
-            utils.LoggerError.Println(err)
-            if i > 0 {
-                // write JSON, because there were successful operations
-                err = resp.Marshall(w)
-                if err != nil {
-                    utils.LoggerError.Println(err)
-                }
-            }
-            return http.StatusInternalServerError, "internal error"
-        }
-        resp.URLs[i].Original = cu.Original
-        resp.URLs[i].Short = cu.Short
-        resp.N++
+        cus[i] = cu
+    }
+    err = trim.GetShort(utils.Cfg.Conf, cus...)
+    if err != nil {
+        utils.LoggerError.Println(err)
+        return http.StatusInternalServerError, "internal error"
+    }
+    for i := range uReqs {
+        resp.URLs[i].Original = cus[i].Original
+        resp.URLs[i].Short = cus[i].Short
     }
     err = resp.Marshall(w)
     if err != nil {
