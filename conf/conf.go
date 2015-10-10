@@ -120,8 +120,16 @@ type projects struct {
     MaxPack   int  `json:"maxpack"`
 }
 
+// domain is settings if main service domain.
+type domain struct {
+    Name    string `json:"name"`
+    Secure  bool   `json:"secure"`
+    Address string
+}
+
 // Config is main configuration storage.
 type Config struct {
+    Domain   domain   `json:"domain"`
     Listener listener `json:"listener"`
     Db       MongoCfg `json:"database"`
     Cache    cacheCfg `json:"cache"`
@@ -145,6 +153,14 @@ func (c *Config) ConnCap() int {
         result = c.Cache.DbPoolSize
     }
     return result
+}
+
+// Address returns a full short url address.
+func (c *Config) Address(url string) string {
+    if c.Domain.Secure {
+        return fmt.Sprintf("https://%s/%s", c.Domain.Name, url)
+    }
+    return fmt.Sprintf("http://%s/%s", c.Domain.Name, url)
 }
 
 // GoodSalts verifies salts values.

@@ -76,7 +76,8 @@ func main() {
         fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
         return
     }
-    // max decode/encode zzzzzzzzzz => 839299365868340223
+    // max int64 9223372036854775807 => AzL8n0Y58m7
+    // real, max decode/encode 839299365868340223 <=> zzzzzzzzzz
     isDecoded := regexp.MustCompile(fmt.Sprintf("^[%s]{1,10}$", trim.Alphabet))
     isShortUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]{1,10}$", trim.Alphabet))
     // CLI commands
@@ -143,18 +144,16 @@ func main() {
         defer func() {
             utils.LoggerInfo.Printf("%v  %v\t%v", code, time.Now().Sub(start), url)
         }()
-        // try to find service handler
+        // try to find a service handler
         f, ok := handlers[url]
         if ok {
             code, msg := f(w, r)
             if code != http.StatusOK {
                 http.Error(w, msg, code)
             }
-            // code = s
             return
         }
         if isShortUrl.MatchString(url) {
-            // fmt.Fprintln(w, "call url handler")
             link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
             if err == nil {
                 code = http.StatusFound

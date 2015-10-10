@@ -1,4 +1,8 @@
 {
+  "domain": {
+    "name": "localhost",          // short url domain
+    "secure": false               // use HTTPS
+  },
   "listener": {
     "host": "",                   // HTTP server host
     "port": 10001,                // HTTP server port
@@ -11,7 +15,7 @@
     }
   },
   "workers":  {
-    "cleanup": 60,                // links clean up timeout (seconds)
+    "cleanup": 90,                // links clean up timeout (seconds)
     "numstats": 2,                // number of statistics goroutines
     "bufstat": 1,                 // channel buffer of statistics goroutines (less than numstats)
     "numcb": 2,                   // number of callbacks goroutines
@@ -43,7 +47,7 @@
   },
   "cache": {                      // cache settings
     "dbpoolsize": 2,              // size of database connections pool
-    "dbpoolttl": 10,              // period between pool clean (seconds)
+    "dbpoolttl": 30,              // period between pool clean (seconds)
     "debug": false,               // turn on connections pool debug
     "lrusize": 2                  // LRU cache size for short URLs, 0 - disabled
   }

@@ -106,6 +106,8 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     }
     // check configuration values
     switch {
+    case cf.Domain.Name == "":
+        err = errorGen("short url domain can not be empty", "domain.name")
     case cf.Listener.Port == 0:
         err = errorGen("not initialized server port value", "listener.port")
     case cf.Db.Reconnects < 1:
@@ -149,6 +151,7 @@ func InitFileConfig(filename string, debug bool) (*conf.Config, error) {
     if cf.Workers.BufCb > cf.Workers.NumCb {
         cf.Workers.BufCb = cf.Workers.NumCb
     }
+    cf.Domain.Address = cf.Address("")
     cf.Cache.LRU = lru.New(cf.Cache.LRUSize)
     cf.Db.RcnDelay = time.Duration(cf.Db.RcnTime) * time.Millisecond
     cf.Workers.CleanD = time.Duration(cf.Workers.CleanMin) * time.Second

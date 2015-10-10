@@ -116,7 +116,7 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         return err
     }
     for i := range cu {
-        cu[i].Short = Encode(cu[i].ID)
+        cu[i].Short = c.Domain.Address + Encode(cu[i].ID)
     }
     return nil
 }
