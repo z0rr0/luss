@@ -37,7 +37,8 @@ var (
 
 // CustomURL stores info about user's URL.
 type CustomURL struct {
-    Short     string     `bson:"_id"`
+    ID        int64      `bson:"_id"`
+    Short     string     `bson:",omitempty"`
     Active    bool       `bson:"active"`
     Project   string     `bson:"prj"`
     Original  string     `bson:"orig"`
@@ -62,6 +63,10 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
         // Logger.Printf("found in the cache: %v", url)
         return &CustomURL{Short: url, Original: string(val)}, nil
     }
+    num, err := Decode(url)
+    if err != nil {
+        return nil, err
+    }
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
@@ -69,7 +74,7 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     }
     coll := conn.C(db.Colls["urls"])
     cu := &CustomURL{}
-    err = coll.Find(bson.M{"_id": url, "active": true}).One(cu)
+    err = coll.Find(bson.M{"_id": num, "active": true}).One(cu)
     if err != nil {
         return nil, err
     }
@@ -95,32 +100,39 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         return err
     }
     defer db.UnlockColls(db.Colls["urls"], conn)
-    short, err := getMax(coll)
+    num, err := getMax(coll)
     if err != nil {
         return err
     }
     documents := make([]interface{}, n)
     for i := range cu {
-        cu[i].Short = short
+        num++
+        cu[i].ID = num
         documents[i] = cu[i]
-        short = Inc(short)
     }
     // ordered multi insert
-    return coll.Insert(documents...)
+    err = coll.Insert(documents...)
+    if err != nil {
+        return err
+    }
+    for i := range cu {
+        cu[i].Short = Encode(cu[i].ID)
+    }
+    return nil
 }
 
 // getMax returns a max short URLs, so it should be called
 // in locked mode to get actual data.
-func getMax(coll *mgo.Collection) (string, error) {
+func getMax(coll *mgo.Collection) (int64, error) {
     maxURL := &CustomURL{}
     err := coll.Find(nil).Sort("-_id").Limit(1).One(maxURL)
     if err != nil {
         if err == mgo.ErrNotFound {
-            return string(Alphabet[1]), nil
+            return 0, nil
         }
-        return "", err
+        return 0, err
     }
-    return Inc(maxURL.Short), nil
+    return maxURL.ID, nil
 }
 
 // Inc increments a number from Alphabet-base numeral system.

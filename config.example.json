@@ -23,7 +23,7 @@
     "cballow": true,              //   allow callback responses
     "maxname": 255,               //   max length of project's name
     "anonymous": true,            //   allow anonymous requests
-    "maxpack": 100                 //   max JSON pack size
+    "maxpack": 512                //   max JSON pack size
   },
   "database": {                   // MongoDB configuration:
     "hosts": ["localhost"],       //   servers list

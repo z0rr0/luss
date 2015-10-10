@@ -69,13 +69,19 @@ func main() {
     version := flag.Bool("version", false, "show version")
     config := flag.String("config", Config, "configuration file")
     admin := flag.String("admin", "", "add new admin user")
+    encode := flag.Int64("encode", 0, "encode numeric value to string")
+    decode := flag.String("decode", "", "decode string value to numeric one")
     flag.Parse()
     if *version {
         fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
         return
     }
-    // configuration initialization
-    if *admin != "" {
+    // max decode/encode zzzzzzzzzz => 839299365868340223
+    isDecoded := regexp.MustCompile(fmt.Sprintf("^[%s]{1,10}$", trim.Alphabet))
+    isShortUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]{1,10}$", trim.Alphabet))
+    // CLI commands
+    switch {
+    case *admin != "":
         cf, err := utils.InitFileConfig(*config, *debug)
         if err != nil {
             utils.LoggerError.Panicf("init config error [%v]", err)
@@ -83,10 +89,25 @@ func main() {
         if u, err := prj.CreateAdmin(*admin, cf); err != nil {
             utils.LoggerError.Panicf("create admin error [%v]\n\tProbably this user already exists.", err)
         } else {
-            utils.LoggerInfo.Printf("Administrator is created:\n\tname: %v\n\ttoken: %v\n", u.Name, u.Secret)
+            fmt.Printf("Administrator is created:\n\tname: %v\n\ttoken: %v\n", u.Name, u.Secret)
+        }
+        return
+    case *encode > 0:
+        // max 9223372036854775807 => AzL8n0Y58m7
+        fmt.Printf("encoding:\n\t%v => %v\n", *encode, trim.Encode(*encode))
+        return
+    case *decode != "":
+        if !isDecoded.MatchString(*decode) {
+            fmt.Printf("ERROR: incorrect 'decode' value: %v\n", *decode)
+        }
+        if dv, derr := trim.Decode(*decode); derr != nil {
+            fmt.Printf("ERROR: incorrect 'decode' value: %v\n", *decode)
+        } else {
+            fmt.Printf("decoding:\n\t%v => %v\n", *decode, dv)
         }
         return
     }
+    // configuration initialization
     err = utils.InitConfig(*config, *debug)
     if err != nil {
         utils.LoggerError.Panicf("init config error [%v]", err)
@@ -105,8 +126,6 @@ func main() {
         MaxHeaderBytes: 1 << 20,
         ErrorLog:       utils.LoggerError,
     }
-
-    isUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]+$", trim.Alphabet))
     // TODO: do all handlers
     handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
         "/test/t":   HandlerTest,
@@ -134,7 +153,7 @@ func main() {
             // code = s
             return
         }
-        if isUrl.MatchString(url) {
+        if isShortUrl.MatchString(url) {
             // fmt.Fprintln(w, "call url handler")
             link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
             if err == nil {

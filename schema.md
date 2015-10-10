@@ -6,7 +6,7 @@
 
 ```js
 {
-  "_id": "short url",               // short URL
+  "_id": 123,                       // short URL and decimal number
   "active": true,                   // link is active
   "prj": "Project2",                // project's name
   "orig": "origin URL",             // origin URL
@@ -19,7 +19,6 @@
   "cb": ["GET", "http://a.ru", "p"] // custom callback settings
 }
 
-db.urls.ensureIndex({"_id": 1}, {"unique": 1})
 db.urls.ensureIndex({"prj": 1, "active": 1, "u": 1})
 db.urls.ensureIndex({"ttl": 1, "active": 1})
 ```

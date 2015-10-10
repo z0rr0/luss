@@ -230,7 +230,6 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     }
     now := time.Now().UTC()
     cu := &trim.CustomURL{
-        // Short:   "",
         Active:    true,
         Project:   uReqs[0].Project.Name,
         Original:  uReqs[0].URL.String(),
