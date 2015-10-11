@@ -137,6 +137,7 @@ func main() {
         // "/p/del" - DELETE del+remove links?
         // "/p/stat" - GET stats: day1-day2
     }
+    // TODO: export/import
 
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         url := strings.TrimRight(r.URL.Path, "/")

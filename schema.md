@@ -9,6 +9,7 @@
   "_id": 123,                       // short URL and decimal number
   "active": true,                   // link is active
   "prj": "Project2",                // project's name
+  "tag": "tag1",                    // project's tag
   "orig": "origin URL",             // origin URL
   "u": "User1",                     // author of this link
   "ttl": ISODate(),                 // link's TTL
@@ -72,6 +73,7 @@ db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
       "ts": Date()
     },
   ],
+  "tags": ["tag1", "tag1"],        // custom project's tags
   "modified": ISODate(),           // date of modification
 }
 

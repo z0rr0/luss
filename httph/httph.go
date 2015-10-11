@@ -23,12 +23,14 @@ import (
     "gopkg.in/mgo.v2/bson"
 )
 
+// urlReqJSON contains parameter of user's request.
 type urlReqJSON struct {
     Original string `json:"url"`
     TTL      int    `json:"ttl"`
     Param    string `json:"p"`
 }
 
+// urlRespJSON is a response for an user's URL.
 type urlRespJSON struct {
     Original string `json:"o"`
     Short    string `json:"s"`
@@ -37,6 +39,7 @@ type urlRespJSON struct {
 // ReqJSON is structure of user's JSON request.
 type ReqJSON struct {
     Token string       `json:"token"`
+    Tag   string       `json:"tag"`
     URLs  []urlReqJSON `json:"urls"`
 }
 
@@ -50,8 +53,19 @@ type RespJSON struct {
 // UserRawRequest is structure of raw user's request data.
 type UserRawRequest struct {
     Param string
+    Tag   string
     URL   *url.URL
     TTL   *time.Time
+}
+
+// UserRequest is structure of verified user's request data.
+type UserRequest struct {
+    User    *conf.User
+    Project *conf.Project
+    URL     *url.URL
+    Param   string
+    Tag     string
+    TTL     *time.Time
 }
 
 // Marshall encodes JSON response.
@@ -65,17 +79,12 @@ func (r *RespJSON) Marshall(w http.ResponseWriter) error {
     return nil
 }
 
-// UserRequest is structure of verified user's request data.
-type UserRequest struct {
-    User    *conf.User
-    Project *conf.Project
-    URL     *url.URL
-    Param   string
-    TTL     *time.Time
-}
-
 // VerifyUserRawRequests validates user's data.
 func VerifyUserRawRequests(token string, reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
+    var (
+        isAnonymous bool
+        tag         string
+    )
     if len(reqs) == 0 {
         return nil, errors.New("empty user request")
     }
@@ -84,11 +93,19 @@ func VerifyUserRawRequests(token string, reqs []UserRawRequest, c *conf.Config) 
     if err != nil {
         return nil, err
     }
+    if p == &conf.AnonProject {
+        isAnonymous = true
+    }
     result := make([]UserRequest, len(reqs))
     for i := range reqs {
+        tag = ""
+        if !isAnonymous {
+            tag = reqs[i].Tag
+        }
         result[i] = UserRequest{
             User:    u,
             Project: p,
+            Tag:     tag,
             URL:     reqs[i].URL,
             TTL:     reqs[i].TTL,
             Param:   reqs[i].Param,
@@ -122,6 +139,7 @@ func ParseJSONRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
             URL:   url,
             Param: req.URLs[i].Param,
             TTL:   ttl,
+            Tag:   req.Tag,
         }
     }
     return VerifyUserRawRequests(req.Token, uReqs, c)
@@ -151,6 +169,7 @@ func ParseLinkRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
             URL:   url,
             TTL:   ttl,
             Param: r.PostFormValue("p"),
+            Tag:   r.PostFormValue("tag"),
         },
     }
     return VerifyUserRawRequests(r.PostFormValue("token"), uReqs, c)
@@ -195,6 +214,7 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
             TTL:       uReqs[i].TTL,
             NotDirect: false,
             Spam:      0,
+            Tag:       uReqs[0].Tag,
             Created:   now,
             Modified:  now,
         }
@@ -237,6 +257,7 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
         TTL:       uReqs[0].TTL,
         NotDirect: false,
         Spam:      0,
+        Tag:       uReqs[0].Tag,
         Created:   now,
         Modified:  now,
     }
