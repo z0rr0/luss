@@ -8,10 +8,12 @@ package trim
 
 import (
     "testing"
+    "time"
 
-    // "github.com/z0rr0/luss/db"
-    // "github.com/z0rr0/luss/test"
-    // "github.com/z0rr0/luss/utils"
+    "github.com/z0rr0/luss/conf"
+    "github.com/z0rr0/luss/db"
+    "github.com/z0rr0/luss/test"
+    "github.com/z0rr0/luss/utils"
 )
 
 func TestEncode(t *testing.T) {
@@ -69,66 +71,81 @@ func TestInc(t *testing.T) {
     }
 }
 
-// func TestGetShort(t *testing.T) {
-//     const (
-//         longURL = "http://mydomain.com"
-//         user    = "anonymous"
-//         project = "default"
-//     )
-//     err := utils.InitConfig(test.TcConfigName(), true)
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-//     cfg := utils.Cfg
-//     rf := &RequestForm{Original: longURL, Project: project, Token: "", TTL: 0, User: user, TTLp: nil}
-//     cu, err := GetShort(rf, cfg.Conf)
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-//     if (cu.Original != longURL) || (cu.String() == "") {
-//         t.Errorf("incorrect behavior")
-//     }
-//     err = db.CleanCollection(cfg.Conf, db.Colls["urls"])
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//     }
-// }
-
-// func TestFindShort(t *testing.T) {
-//     const (
-//         longURL = "http://mydomain.com"
-//         user    = "anonymous"
-//         project = "default"
-//     )
-//     err := utils.InitConfig(test.TcConfigName(), true)
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-//     cfg := utils.Cfg
-//     clean := func() error {
-//         colls := []string{db.Colls["urls"], db.Colls["ustats"]}
-//         return db.CleanCollection(cfg.Conf, colls...)
-//     }
-//     err = clean()
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-//     defer clean()
-//     rf := &RequestForm{Original: longURL, Project: project, Token: "", TTL: 0, User: user, TTLp: nil}
-//     cu1, err := GetShort(rf, cfg.Conf)
-//     if err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-//     if _, err := FindShort(cu1.Short, cfg.Conf); err != nil {
-//         t.Errorf("invalid: %v", err)
-//         return
-//     }
-// }
+func TestGetShort(t *testing.T) {
+    const (
+        longURL = "http://mydomain.com"
+    )
+    err := utils.InitConfig(test.TcConfigName(), true)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    cfg := utils.Cfg
+    err = db.CleanCollection(cfg.Conf, db.Colls["urls"])
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    now := time.Now().UTC()
+    cu := &CustomURL{
+        Active:    true,
+        Project:   conf.DefaultProject,
+        Original:  longURL,
+        User:      conf.AnonName,
+        TTL:       nil,
+        NotDirect: false,
+        Spam:      0,
+        Created:   now,
+        Modified:  now,
+    }
+    if err := GetShort(cfg.Conf, cu); err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    defer db.CleanCollection(cfg.Conf, db.Colls["urls"])
+    if (cu.Original != longURL) || (cu.String() == "") {
+        t.Errorf("incorrect behavior")
+    }
+    // add many
+    cus := make([]*CustomURL, cfg.Conf.Projects.MaxPack+1)
+    for i := 0; i < cfg.Conf.Projects.MaxPack+1; i++ {
+        cus[i] = &CustomURL{
+            Active:    true,
+            Project:   conf.DefaultProject,
+            Original:  longURL,
+            User:      conf.AnonName,
+            TTL:       nil,
+            NotDirect: false,
+            Spam:      0,
+            Created:   now,
+            Modified:  now,
+        }
+    }
+    if err := GetShort(cfg.Conf, cus[:cfg.Conf.Projects.MaxPack]...); err != nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    cus[cfg.Conf.Projects.MaxPack] = cu
+    if err := GetShort(cfg.Conf, cus...); err == nil {
+        t.Errorf("invalid: %v", err)
+        return
+    }
+    fcu, err := FindShort(cu.Short, cfg.Conf)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+    }
+    if fcu.Original != longURL {
+        t.Errorf("incorrect behavior")
+    }
+    // get from cache
+    fcu, err = FindShort(cu.Short, cfg.Conf)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+    }
+    if fcu.Original != longURL {
+        t.Errorf("incorrect behavior")
+    }
+}
 
 func BenchmarkEncode(b *testing.B) {
     // max 9223372036854775807 == AzL8n0Y58m7
@@ -165,21 +182,5 @@ func BenchmarkInc2(b *testing.B) {
         if s := Inc(x); s != y {
             b.Fatalf("bad result: %v %v", s, x)
         }
-    }
-}
-
-func BenchmarkEncode1(b *testing.B) {
-    var x int64 = 9223372036854775800 // 9223372036854775807
-    for i := 0; i < b.N; i++ {
-        Encode(x)
-    }
-}
-
-func BenchmarkEncode2(b *testing.B) {
-    var x int64 = 9223372036854775800 // 9223372036854775807
-    y := Encode(x)
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        y = Inc(y)
     }
 }

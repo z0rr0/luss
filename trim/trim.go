@@ -78,6 +78,7 @@ func FindShort(url string, c *conf.Config) (*CustomURL, error) {
     if err != nil {
         return nil, err
     }
+    // cu.Short == "", becuase it is not needed to encode cu.ID
     // add to the cache
     c.Cache.LRU.Add(url, cu.Original)
     return cu, nil
@@ -116,7 +117,7 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         return err
     }
     for i := range cu {
-        cu[i].Short = c.Domain.Address + Encode(cu[i].ID)
+        cu[i].Short = Encode(cu[i].ID)
     }
     return nil
 }

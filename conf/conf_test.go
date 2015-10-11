@@ -34,11 +34,14 @@ func TestParseConfig(t *testing.T) {
         t.Errorf("incorrect behavior")
     }
     // conn cap
-    values := map[int]int{2: 2, 70: 16, 500: 32}
+    values := map[int]int{2: 2, 10: 8, 70: 16, 500: 32}
     for k, v := range values {
         cfg.Cache.DbPoolSize = k
         if c := cfg.ConnCap(); c != v {
             t.Errorf("invalid: %v != %v", c, v)
         }
+    }
+    if cfg.Address("domain.com") == "" {
+        t.Errorf("incorrect behavior")
     }
 }

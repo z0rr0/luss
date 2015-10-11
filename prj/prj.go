@@ -222,9 +222,6 @@ func CreateAdmin(name string, c *conf.Config) (*conf.User, error) {
     if err != nil {
         return nil, err
     }
-    if err != nil {
-        return nil, err
-    }
     u := &conf.User{Name: name, Key: p2, Role: "admin", Created: time.Now().UTC()}
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)

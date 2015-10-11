@@ -27,9 +27,10 @@ PACKAGES_TEST=( \
 "test" \
 "db" \
 "conf" \
-"trim" \
 "lru" \
+"trim" \
 "prj" \
+# "httph" \
 )
 
 PACKAGES_CHECK=( \

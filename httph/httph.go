@@ -207,7 +207,7 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
     }
     for i := range uReqs {
         resp.URLs[i].Original = cus[i].Original
-        resp.URLs[i].Short = cus[i].Short
+        resp.URLs[i].Short = utils.Cfg.Conf.Domain.Address + cus[i].Short
     }
     err = resp.Marshall(w)
     if err != nil {
@@ -247,7 +247,7 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     }
     // log
     utils.LoggerDebug.Printf("passed [%v] => [%v]", cu.Original, cu.Short)
-    fmt.Fprintf(w, cu.Short)
+    fmt.Fprintf(w, utils.Cfg.Conf.Domain.Address+cu.Short)
     return http.StatusOK, ""
 }
 

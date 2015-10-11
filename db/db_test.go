@@ -61,4 +61,12 @@ func TestNewConnPool(t *testing.T) {
     if err != nil {
         t.Errorf("invalid: %v", err)
     }
+    err = LockColls("test", conn)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+    }
+    err = UnlockColls("test", conn)
+    if err != nil {
+        t.Errorf("invalid: %v", err)
+    }
 }
