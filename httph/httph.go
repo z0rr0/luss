@@ -50,22 +50,18 @@ type RespJSON struct {
     N    int           `json:"n"`
 }
 
-// UserRawRequest is structure of raw user's request data.
-type UserRawRequest struct {
-    Param string
-    Tag   string
-    URL   *url.URL
-    TTL   *time.Time
+// UserRequestMeta is additional info for user's request.
+type UserRequestMeta struct {
+    User    *conf.User
+    Project *conf.Project
+    Tag     string
 }
 
 // UserRequest is structure of verified user's request data.
 type UserRequest struct {
-    User    *conf.User
-    Project *conf.Project
-    URL     *url.URL
-    Param   string
-    Tag     string
-    TTL     *time.Time
+    URL   *url.URL
+    Param string
+    TTL   *time.Time
 }
 
 // Marshall encodes JSON response.
@@ -79,55 +75,43 @@ func (r *RespJSON) Marshall(w http.ResponseWriter) error {
     return nil
 }
 
-// VerifyUserRawRequests validates user's data.
-func VerifyUserRawRequests(token string, reqs []UserRawRequest, c *conf.Config) ([]UserRequest, error) {
-    var (
-        isAnonymous bool
-        tag         string
-    )
-    if len(reqs) == 0 {
-        return nil, errors.New("empty user request")
-    }
+// VerifyUserRequest validates user's data.
+func VerifyUserRequest(token, tag string, c *conf.Config) (*UserRequestMeta, error) {
     // check user credentials (it can be anonymous)
     p, u, err := prj.CheckUser(token, c)
     if err != nil {
         return nil, err
     }
+    // is it anonymous request?
     if p == &conf.AnonProject {
-        isAnonymous = true
-    }
-    result := make([]UserRequest, len(reqs))
-    for i := range reqs {
         tag = ""
-        if !isAnonymous {
-            tag = reqs[i].Tag
-        }
-        result[i] = UserRequest{
-            User:    u,
-            Project: p,
-            Tag:     tag,
-            URL:     reqs[i].URL,
-            TTL:     reqs[i].TTL,
-            Param:   reqs[i].Param,
-        }
     }
-    return result, nil
+    meta := &UserRequestMeta{
+        User:    u,
+        Project: p,
+        Tag:     tag,
+    }
+    return meta, nil
 }
 
 // ParseJSONRequest parses HTTP JSON pack request.
-func ParseJSONRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
+func ParseJSONRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []UserRequest, error) {
     var ttl *time.Time
     decoder := json.NewDecoder(r.Body)
     req := &ReqJSON{}
     err := decoder.Decode(req)
     if (err != nil) && (err != io.EOF) {
-        return nil, err
+        return nil, nil, err
     }
-    uReqs := make([]UserRawRequest, len(req.URLs))
+    n := len(req.URLs)
+    if n == 0 {
+        return nil, nil, errors.New("empty user request")
+    }
+    uReqs := make([]UserRequest, n)
     for i := range req.URLs {
         url, err := utils.ParseURL(req.URLs[i].Original)
         if err != nil {
-            return nil, err
+            return nil, nil, err
         }
         if req.URLs[i].TTL > 0 {
             expired := time.Now().Add(time.Duration(req.URLs[i].TTL) * time.Hour)
@@ -135,44 +119,50 @@ func ParseJSONRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
         } else {
             ttl = nil
         }
-        uReqs[i] = UserRawRequest{
+        uReqs[i] = UserRequest{
             URL:   url,
-            Param: req.URLs[i].Param,
             TTL:   ttl,
-            Tag:   req.Tag,
+            Param: req.URLs[i].Param,
         }
     }
-    return VerifyUserRawRequests(req.Token, uReqs, c)
+    meta, err := VerifyUserRequest(req.Token, req.Tag, c)
+    if err != nil {
+        return nil, nil, err
+    }
+    return meta, uReqs, nil
 }
 
 // ParseLinkRequest parses HTTP request and returns RequestForm pointer.
-func ParseLinkRequest(r *http.Request, c *conf.Config) ([]UserRequest, error) {
+func ParseLinkRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []UserRequest, error) {
     var ttl *time.Time
     rawurl := r.PostFormValue("url")
     if rawurl == "" {
-        return nil, errors.New("url parameter not found")
+        return nil, nil, errors.New("url parameter not found")
     }
     url, err := utils.ParseURL(rawurl)
     if err != nil {
-        return nil, err
+        return nil, nil, err
     }
     if t := r.PostFormValue("ttl"); t != "" {
         ti, err := strconv.Atoi(t)
         if err != nil {
-            return nil, err
+            return nil, nil, err
         }
         expired := time.Now().Add(time.Duration(ti) * time.Hour)
         ttl = &expired
     }
-    uReqs := []UserRawRequest{
-        UserRawRequest{
+    uReqs := []UserRequest{
+        UserRequest{
             URL:   url,
             TTL:   ttl,
             Param: r.PostFormValue("p"),
-            Tag:   r.PostFormValue("tag"),
         },
     }
-    return VerifyUserRawRequests(r.PostFormValue("token"), uReqs, c)
+    meta, err := VerifyUserRequest(r.PostFormValue("token"), r.PostFormValue("tag"), c)
+    if err != nil {
+        return nil, nil, err
+    }
+    return meta, uReqs, nil
 }
 
 // TestWrite writes temporary data to the database.
@@ -191,14 +181,14 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    uReqs, err := ParseJSONRequest(r, utils.Cfg.Conf)
+    meta, uReqs, err := ParseJSONRequest(r, utils.Cfg.Conf)
     if err != nil {
         utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
     }
     n := len(uReqs)
     resp := &RespJSON{
-        User: uReqs[0].User.Name,
+        User: meta.User.Name,
         URLs: make([]urlRespJSON, n),
         N:    n,
     }
@@ -207,20 +197,21 @@ func HandlerAddJSON(w http.ResponseWriter, r *http.Request) (int, string) {
         now := time.Now().UTC()
         cu := &trim.CustomURL{
             // Short:   "",
-            Active:    true,
-            Project:   uReqs[i].Project.Name,
+            Project:   meta.Project.Name,
+            User:      meta.User.Name,
+            Tag:       meta.Tag,
             Original:  uReqs[i].URL.String(),
-            User:      uReqs[i].User.Name,
             TTL:       uReqs[i].TTL,
             NotDirect: false,
+            Active:    true,
             Spam:      0,
-            Tag:       uReqs[0].Tag,
             Created:   now,
             Modified:  now,
         }
         cus[i] = cu
     }
     err = trim.GetShort(utils.Cfg.Conf, cus...)
+    // err = trim.GetShort(utils.Cfg.Conf, cus...)
     if err != nil {
         utils.LoggerError.Println(err)
         return http.StatusInternalServerError, "internal error"
@@ -243,21 +234,21 @@ func HandlerAddLink(w http.ResponseWriter, r *http.Request) (int, string) {
     if r.Method != "POST" {
         return http.StatusMethodNotAllowed, "method not allowed"
     }
-    uReqs, err := ParseLinkRequest(r, utils.Cfg.Conf)
+    meta, uReqs, err := ParseLinkRequest(r, utils.Cfg.Conf)
     if err != nil {
         utils.LoggerError.Println(err)
         return http.StatusBadRequest, "bad request"
     }
     now := time.Now().UTC()
     cu := &trim.CustomURL{
-        Active:    true,
-        Project:   uReqs[0].Project.Name,
+        Project:   meta.Project.Name,
+        User:      meta.User.Name,
+        Tag:       meta.Tag,
         Original:  uReqs[0].URL.String(),
-        User:      uReqs[0].User.Name,
         TTL:       uReqs[0].TTL,
+        Active:    true,
         NotDirect: false,
         Spam:      0,
-        Tag:       uReqs[0].Tag,
         Created:   now,
         Modified:  now,
     }

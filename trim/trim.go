@@ -91,13 +91,17 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
     if n == 0 {
         return errors.New("empty request")
     }
+    // check URLs pack size
+    if n > c.Projects.MaxPack {
+        return errors.New("too big pack")
+    }
+    // all CustomURL have same project name and tag.
+    pName, tag := cu[0].Project, cu[0].Tag
+    // get db connection
     conn, err := db.GetConn(c)
     defer db.ReleaseConn(conn)
     if err != nil {
         return err
-    }
-    if n > c.Projects.MaxPack {
-        return errors.New("too big pack")
     }
     coll := conn.C(db.Colls["urls"])
     err = db.LockColls(db.Colls["urls"], conn)
@@ -105,32 +109,28 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
         return err
     }
     defer db.UnlockColls(db.Colls["urls"], conn)
+    // add new tag to the project
+    if tag != "" {
+        err = AddTag(pName, tag, conn)
+        if err != nil {
+            return err
+        }
+    }
+    // find max ID number, locked-mode
     num, err := getMax(coll)
     if err != nil {
         return err
     }
     documents := make([]interface{}, n)
-    tags := make(map[string]bool)
     for i := range cu {
         num++
         cu[i].ID = num
         documents[i] = cu[i]
-        if t := cu[i].Tag; t != "" {
-            tags[t] = true
-        }
     }
-    errc := make(chan error)
-    go func() {
-        errc <- AddTag(cu[0].Project, tags, c)
-    }()
     // ordered multi insert
     err = coll.Insert(documents...)
     if err != nil {
-        Logger.Printf("insert was failed [%v], tags add [%v]", err, <-errc)
-        return err
-    }
-    err = <-errc
-    if err != nil {
+        Logger.Printf("insert was failed [%v], tag  [%v]", err, tag)
         return err
     }
     for i := range cu {
@@ -140,25 +140,12 @@ func GetShort(c *conf.Config, cu ...*CustomURL) error {
 }
 
 // AddTag adds new project's tag if it doesn't exist.
-func AddTag(project string, tagsMap map[string]bool, c *conf.Config) error {
-    n := len(tagsMap)
-    if n == 0 {
-        return nil
-    }
-    conn, err := db.GetConn(c)
-    defer db.ReleaseConn(conn)
-    if err != nil {
-        return err
-    }
+func AddTag(project, tag string, conn *db.Conn) error {
     coll := conn.C(db.Colls["projects"])
-    i, tags := 0, make([]string, n)
-    for k, _ := range tagsMap {
-        tags[i] = k
-        i++
-    }
-    cond := bson.M{"name": project, "tags": bson.M{"$nin": tags}}
-    data := bson.M{"$push": bson.M{"tags": bson.M{"$each": tags}}}
-    err = coll.Update(cond, data)
+    cond := bson.M{"name": project, "tags": bson.M{"$ne": tag}}
+    data := bson.M{"$push": bson.M{"tags": tag}}
+    err := coll.Update(cond, data)
+    // skip ErrNotFound because tag can already exist
     if (err != nil) && (err != mgo.ErrNotFound) {
         return err
     }
