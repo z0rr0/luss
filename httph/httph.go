@@ -52,9 +52,10 @@ type RespJSON struct {
 
 // UserRequestMeta is additional info for user's request.
 type UserRequestMeta struct {
-    User    *conf.User
-    Project *conf.Project
-    Tag     string
+    User      *conf.User
+    Project   *conf.Project
+    Tag       string
+    Anonymous bool
 }
 
 // UserRequest is structure of verified user's request data.
@@ -77,6 +78,7 @@ func (r *RespJSON) Marshall(w http.ResponseWriter) error {
 
 // VerifyUserRequest validates user's data.
 func VerifyUserRequest(token, tag string, c *conf.Config) (*UserRequestMeta, error) {
+    var isAnonymous bool
     // check user credentials (it can be anonymous)
     p, u, err := prj.CheckUser(token, c)
     if err != nil {
@@ -84,19 +86,23 @@ func VerifyUserRequest(token, tag string, c *conf.Config) (*UserRequestMeta, err
     }
     // is it anonymous request?
     if p == &conf.AnonProject {
-        tag = ""
+        isAnonymous, tag = true, ""
     }
     meta := &UserRequestMeta{
-        User:    u,
-        Project: p,
-        Tag:     tag,
+        User:      u,
+        Project:   p,
+        Tag:       tag,
+        Anonymous: isAnonymous,
     }
     return meta, nil
 }
 
 // ParseJSONRequest parses HTTP JSON pack request.
 func ParseJSONRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []UserRequest, error) {
-    var ttl *time.Time
+    var (
+        ttl   *time.Time
+        param string
+    )
     decoder := json.NewDecoder(r.Body)
     req := &ReqJSON{}
     err := decoder.Decode(req)
@@ -106,6 +112,10 @@ func ParseJSONRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []User
     n := len(req.URLs)
     if n == 0 {
         return nil, nil, errors.New("empty user request")
+    }
+    meta, err := VerifyUserRequest(req.Token, req.Tag, c)
+    if err != nil {
+        return nil, nil, err
     }
     uReqs := make([]UserRequest, n)
     for i := range req.URLs {
@@ -119,25 +129,33 @@ func ParseJSONRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []User
         } else {
             ttl = nil
         }
+        if meta.Anonymous {
+            param = ""
+        } else {
+            param = req.URLs[i].Param
+        }
         uReqs[i] = UserRequest{
             URL:   url,
             TTL:   ttl,
-            Param: req.URLs[i].Param,
+            Param: param,
         }
-    }
-    meta, err := VerifyUserRequest(req.Token, req.Tag, c)
-    if err != nil {
-        return nil, nil, err
     }
     return meta, uReqs, nil
 }
 
 // ParseLinkRequest parses HTTP request and returns RequestForm pointer.
 func ParseLinkRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []UserRequest, error) {
-    var ttl *time.Time
+    var (
+        ttl   *time.Time
+        param string
+    )
     rawurl := r.PostFormValue("url")
     if rawurl == "" {
         return nil, nil, errors.New("url parameter not found")
+    }
+    meta, err := VerifyUserRequest(r.PostFormValue("token"), r.PostFormValue("tag"), c)
+    if err != nil {
+        return nil, nil, err
     }
     url, err := utils.ParseURL(rawurl)
     if err != nil {
@@ -151,16 +169,17 @@ func ParseLinkRequest(r *http.Request, c *conf.Config) (*UserRequestMeta, []User
         expired := time.Now().Add(time.Duration(ti) * time.Hour)
         ttl = &expired
     }
+    if meta.Anonymous {
+        param = ""
+    } else {
+        param = r.PostFormValue("p")
+    }
     uReqs := []UserRequest{
         UserRequest{
             URL:   url,
             TTL:   ttl,
-            Param: r.PostFormValue("p"),
+            Param: param,
         },
-    }
-    meta, err := VerifyUserRequest(r.PostFormValue("token"), r.PostFormValue("tag"), c)
-    if err != nil {
-        return nil, nil, err
     }
     return meta, uReqs, nil
 }
