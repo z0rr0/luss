@@ -9,7 +9,7 @@
   "_id": 123,                       // short URL and decimal number
   "active": true,                   // link is active
   "prj": "Project2",                // project's name
-  "tag": "tag1",                    // project's tag
+  "tag": "tag1",                    // tag (some custom identifier)
   "orig": "origin URL",             // origin URL
   "u": "User1",                     // author of this link
   "ttl": ISODate(),                 // link's TTL
@@ -17,7 +17,11 @@
   "spam": 0.5,                      // smap coefficient
   "ts": ISODate()                   // date of creation
   "mod": ISODate()                  // date of modification
-  "cb": ["GET", "http://a.ru", "p"] // custom callback settings
+  "cb": {                           // callback settings
+    "u": "https://domain.com/",     //   callback URL
+    "m": "GET",                     //   callback method
+    "p": "string parameter",        //   additional callback parameter (also _id and tag will be added)
+  }
 }
 
 db.urls.ensureIndex({"prj": 1, "active": 1, "u": 1})
@@ -28,10 +32,10 @@ db.urls.ensureIndex({"ttl": 1, "active": 1})
 
 ```js
 {
-  "_id": ObjectId(),                     // item ID
-  "url": "short url",                    // short URL
-  "day": ISODate("2014-08-13 00:00:00")  // date (daily around)
-  "c": 395                               // daily counter
+  "_id": ObjectId(),                // item ID
+  "url": "short url",               // short URL
+  "tag": "tag",                     // link's tag (some custom identifier)
+  "date": ISODate()                 // date (daily around)
 }
 
 db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
@@ -43,8 +47,8 @@ db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 
 ```js
 {
-  "_id": "urls",                   // locked collection
-  "locked": false,                 // mutex flag
+  "_id": "urls",                    // locked collection
+  "locked": false,                  // mutex flag
 }
 
 // test collection is used during test ping.
