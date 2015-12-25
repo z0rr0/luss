@@ -7,24 +7,18 @@
     "host": "",                   // HTTP server host
     "port": 10001,                // HTTP server port
     "timeout": 30,                // HTTP server timeout
-    "cleanup": 60,                // links clean up timeout (seconds) [moved ot workes]
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
-      "tokenlen": 16,             //   token length in bytes
-      "admininit": "abc"          //   amdin init secrete part
+      "tokenlen": 32,             //   token length in bytes
     }
-  },
-  "workers":  {
-    "cleanup": 90,                // links clean up timeout (seconds)
-    "numstats": 2,                // number of statistics goroutines
-    "bufstat": 1,                 // channel buffer of statistics goroutines (less than numstats)
-    "numcb": 2,                   // number of callbacks goroutines
-    "bufcb": 1                    // channel buffer of callbacks goroutines (less than numcb)
   },
   "projects": {                   // project's settings:
     "maxspam": 5,                 //   max spam percents
-    "cblength": 255,              //   max length of callback parameter
+    "cleanup": 90,                //   links TTL clean up timeout (seconds)
     "cballow": true,              //   allow callback responses
+    "cbnum": 2,                   //   number of callbacks goroutines
+    "cbbuf": 1,                   //   channel buffer of callbacks goroutines (less than numcb)
+    "cblength": 255,              //   max length of callback parameter
     "maxname": 255,               //   max length of project's name
     "anonymous": true,            //   allow anonymous requests
     "maxpack": 512                //   max JSON pack size
@@ -46,9 +40,7 @@
     "debug": false                //   debug mode
   },
   "cache": {                      // cache settings
-    "dbpoolsize": 2,              // size of database connections pool
-    "dbpoolttl": 30,              // period between pool clean (seconds)
-    "debug": false,               // turn on connections pool debug
-    "lrusize": 2                  // LRU cache size for short URLs, 0 - disabled
+    "urls": 8,                    // LRU cache size for short URLs, 0 - disabled
+    "projects": 2                 // projects' cache
   }
 }
