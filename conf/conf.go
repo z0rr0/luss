@@ -13,9 +13,10 @@ import (
 	"net"
 	"path/filepath"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/hashicorp/golang-lru"
+	"github.com/z0rr0/luss/conf"
 	"gopkg.in/mgo.v2"
 )
 
@@ -23,17 +24,17 @@ const (
 	// SaltsLen in minimal recommended salt length.
 	SaltsLen = 16
 	// AnonName is name of anonymous user.
-	AnonName = "anonymous"
+	// AnonName = "anonymous"
 	// DefaultProject is name of default project.
-	DefaultProject = "system"
+	// DefaultProject = "system"
 )
 
-var (
-	// AnonUser is anonymous user
-	AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
-	// AnonProject is system project for administrative and anonymous users.
-	AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
-)
+// var (
+// 	// AnonUser is anonymous user
+// 	AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
+// 	// AnonProject is system project for administrative and anonymous users.
+// 	AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
+// )
 
 // User is structure of user's info.
 // type User struct {
@@ -51,6 +52,13 @@ var (
 // 	Users    []User        `bson:"users"`
 // 	Modified time.Time     `bson:"modified"`
 // }
+
+// Conn is database connection structure.
+type Conn struct {
+	S   *mgo.Session
+	m   sync.Mutex
+	Cfg *conf.MongoCfg
+}
 
 // domain is settings if main service domain.
 type domain struct {
@@ -104,7 +112,7 @@ type MongoCfg struct {
 	Debug       bool     `json:"debug"`
 	MongoCred   *mgo.DialInfo
 	Logger      *log.Logger
-	// conn
+	Conn        *Conn
 }
 
 // Cache is database connections pool settings
