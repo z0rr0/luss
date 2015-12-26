@@ -8,31 +8,29 @@ package db
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/z0rr0/hashq"
 	"github.com/z0rr0/luss/conf"
+	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 const (
-	// maxLockAttempts is a number attempts to lock a collection
-	// before an error will be returned.
-	maxLockAttempts = 7 // >= 127 ms
+	sessionKey key = 0
 )
 
 var (
 	// Logger is a logger for error messages
 	Logger = log.New(os.Stderr, "LOGGER [db]: ", log.Ldate|log.Ltime|log.Lshortfile)
-	// Colls is a map of db collections.
+	// Colls is a map of db collections names.
+	// Keys can be used as aliases, values are real collection names.
 	Colls = map[string]string{
 		"test":     "test",
 		"users":    "users",
@@ -43,14 +41,33 @@ var (
 	}
 )
 
+// key is internal type to get session value from context.
+type key int
+
 // Item is any DB item, it contains only identifier.
 type Item struct {
 	ID bson.ObjectId `bson:"_id"`
 }
 
-func (c *Conn) connect() error {
-	c.m.Lock()
-	defer c.m.Unlock()
+// NewContext returns a new Context carrying MongoDB session.
+func NewContext(ctx context.Context, s *mgo.Session) context.Context {
+	return context.WithValue(ctx, sessionKey, s)
+}
+
+// CtxSession finds and returns MongoDB session from the Context.
+func CtxSession(ctx context.Context) (*mgo.Session, error) {
+	s, ok := ctx.Value(sessionKey).(*mgo.Session)
+	if !ok {
+		return nil, errors.New("not found context db session")
+	}
+	return s, nil
+}
+
+// connect sets new MongoDB connection
+// and saves the session to Conn.S fields.
+func connect(c *conf.Conn) error {
+	c.M.Lock()
+	defer c.M.Unlock()
 	if c.S == nil {
 		s, err := mongoDBConnection(c.Cfg)
 		if err != nil {
@@ -62,6 +79,8 @@ func (c *Conn) connect() error {
 		if err != nil {
 			return err
 		}
+		// old session is not valid
+		// close it and use new one
 		oldS := c.S
 		c.S = s
 		oldS.Close()
@@ -69,106 +88,32 @@ func (c *Conn) connect() error {
 	return nil
 }
 
-func (c *Conn) GetConn(secondary bool) (*mgo.Session, error) {
-	if c.S.Ping() != nil {
-		err := c.connect()
+// NewSession returns new MongoDB session based on Conn data.
+func NewSession(c *conf.Conn, primary bool) (*mgo.Session, error) {
+	if (c.S == nil) || (c.S.Ping() != nil) {
+		err := connect(c)
 		if err != nil {
 			return nil, err
 		}
 	}
 	s := c.S.Copy()
-	if secondary {
+	if !primary {
 		s.SetMode(mgo.SecondaryPreferred, true)
 	}
 	return s, nil
 }
 
-// New initializes main database connection and returns it.
-func New(cfg *conf.MongoCfg) (*Conn, error) {
-	conn := &Conn{Cfg: cfg}
-	err := conn.connect()
+// C return a collection pointer by its name from default database.
+func C(ctx context.Context, name string) (*mgo.Collection, error) {
+	s, err := CtxSession(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return conn, nil
-}
-
-func C(s *mgo.Session, name string) *mgo.Collection {
-	return s.DB("").C(name)
-}
-
-// Conn is database connection structure.
-// mgo is thread-safe and pings a connection after its opening.
-type Conn struct {
-	Session *mgo.Session
-	mutex   sync.RWMutex
-	one     sync.Once
-	rlu     bool // recently used
-}
-
-// New creates new Conn structure.
-func (c *Conn) New() hashq.Shared {
-	return &Conn{}
-}
-
-// Close closes an opened connection. d is a timeout after closing.
-// Connection pool can't be decreased, so it is not blocked in this method.
-func (c *Conn) Close(d time.Duration) bool {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	if c.Session == nil {
-		c.one = sync.Once{}
-		return false
+	cname, ok := Colls[name]
+	if !ok {
+		return nil, errors.New("unknown collection name")
 	}
-	// don't close a connection immediately,
-	// only if it was not used during all d period.
-	if c.rlu {
-		c.rlu = false
-		return false
-	}
-	c.Session.Close()
-	c.Session, c.one = nil, sync.Once{}
-	time.Sleep(d)
-	return true
-}
-
-// Open opens new database connection but only if it wasn't ready before.
-// The boolean returned value will be true, it a connection was opened firstly.
-func (c *Conn) Open(cfg *conf.MongoCfg) (bool, error) {
-	var (
-		err   error
-		isNew bool
-	)
-	c.lock()
-	openOnce := func() {
-		s, serr := MongoDBConnection(cfg)
-		if serr != nil {
-			err = serr
-			return
-		}
-		c.Session, isNew = s, true
-	}
-	c.one.Do(openOnce)
-	return isNew, err
-}
-
-func (c *Conn) lock() {
-	// Logger.Printf("call lock for %p", c)
-	c.mutex.RLock()
-	// Logger.Printf("locked  %p", c)
-}
-
-// release releases connection resource, but doesn't close.
-func (c *Conn) release() {
-	// Logger.Printf("call unlock for %p", c)
-	c.mutex.RUnlock()
-}
-
-// C returns a pointer to the database collection cname.
-// It is only a wrapper method, and should be called only if connection c is opened.
-func (c *Conn) C(cname string) *mgo.Collection {
-	// default database from mgo.DialInfo will be used.
-	return c.Session.DB("").C(cname)
+	return s.DB("").C(cname), nil
 }
 
 // MongoCredential initializes MongoDB credentials.
@@ -224,8 +169,8 @@ func MongoCredential(cfg *conf.MongoCfg) error {
 	return nil
 }
 
-// MongoDBConnection is an initialization of MongoDb connection.
-func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
+// mongoDBConnection is an initialization of MongoDb connection.
+func mongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 	if cfg.MongoCred == nil {
 		err := MongoCredential(cfg)
 		if err != nil {
@@ -249,90 +194,49 @@ func MongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 	return session, nil
 }
 
-// ReleaseConn unlocks a connection if it exists.
-func ReleaseConn(c *Conn) {
-	if c != nil {
-		c.release()
+// CheckID converts string s to ObjectId if it is possible,
+// otherwise it returns error.
+func CheckID(s string) (bson.ObjectId, error) {
+	d, err := hex.DecodeString(s)
+	if err != nil || len(d) != 12 {
+		return "", errors.New("invalid database ID")
 	}
+	return bson.ObjectId(d), nil
 }
 
-// GetConn returns a database connection from the pool.
-// Caller should run conn.Release() after connection usage.
-func GetConn(cfg *conf.Config) (*Conn, error) {
-	isNew, err := true, errors.New("connection initial error")
-	shared := <-cfg.Db.ConChan
-	conn := shared.(*Conn)
-	for i := 0; i < cfg.Db.Reconnects; i++ {
-		isNew, err = conn.Open(&cfg.Db)
-		if !isNew && (err == nil) {
-			err = conn.Session.Ping()
-		}
-		if err == nil {
-			// Close() checks and updates this field also
-			conn.rlu = true
-			// conn is RLocked by Open()
-			return conn, nil
-		}
-		Logger.Printf("WARNING: failed %v attempt to open connection %p", i+1, conn)
-		conn.release()
-		conn.Close(cfg.Db.RcnDelay)
-	}
-	// connection is already closed
-	// don't return it to use in ReleaseConn
-	return nil, err
-}
+// // CleanCollection removes all data from db collection.
+// func CleanCollection(c *conf.Config, names ...string) error {
+// 	conn, err := GetConn(c)
+// 	defer ReleaseConn(conn)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	for _, name := range names {
+// 		if err == nil {
+// 			coll := conn.C(name)
+// 			_, err = coll.RemoveAll(nil)
+// 		}
+// 	}
+// 	return err
+// }
 
-// NewConnPool initializes new connections pool.
-func NewConnPool(cfg *conf.Config) (*hashq.HashQ, error) {
-	// TODO: should we have 2 pools for primary/secondary read prefer?
-	if cfg == nil {
-		return nil, errors.New("invalid parameter")
-	}
-	pool := hashq.New(cfg.Cache.DbPoolSize, &Conn{}, 0)
-	ch, errch := make(chan hashq.Shared, cfg.ConnCap()), make(chan error)
-	go pool.Produce(ch, errch)
-	err := <-errch
-	if err != nil {
-		return nil, err
-	}
-	go pool.Monitor(time.Duration(cfg.Cache.DbPoolTTL) * time.Second)
-	cfg.Db.ConChan = ch
-	return pool, nil
-}
+// // LockColls adds a lock recored to name-collection
+// func LockColls(name string, conn *Conn) error {
+// 	delay := time.Duration(time.Millisecond)
+// 	coll := conn.C(Colls["locks"])
+// 	for i := 0; i < maxLockAttempts; i++ {
+// 		_, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
+// 		if err == nil {
+// 			return nil
+// 		}
+// 		time.Sleep(delay)
+// 		delay *= 2
+// 	}
+// 	return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxLockAttempts)
+// }
 
-// CleanCollection removes all data from db collection.
-func CleanCollection(c *conf.Config, names ...string) error {
-	conn, err := GetConn(c)
-	defer ReleaseConn(conn)
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		if err == nil {
-			coll := conn.C(name)
-			_, err = coll.RemoveAll(nil)
-		}
-	}
-	return err
-}
-
-// LockColls adds a lock recored to name-collection
-func LockColls(name string, conn *Conn) error {
-	delay := time.Duration(time.Millisecond)
-	coll := conn.C(Colls["locks"])
-	for i := 0; i < maxLockAttempts; i++ {
-		_, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
-		if err == nil {
-			return nil
-		}
-		time.Sleep(delay)
-		delay *= 2
-	}
-	return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxLockAttempts)
-}
-
-// UnlockColls removes a lock recored from name-collection.
-func UnlockColls(name string, conn *Conn) error {
-	coll := conn.C(Colls["locks"])
-	return coll.Update(bson.M{"_id": name}, bson.M{"$set": bson.M{"locked": false}})
-}
+// // UnlockColls removes a lock recored from name-collection.
+// func UnlockColls(name string, conn *Conn) error {
+// 	coll := conn.C(Colls["locks"])
+// 	return coll.Update(bson.M{"_id": name}, bson.M{"$set": bson.M{"locked": false}})
+// }

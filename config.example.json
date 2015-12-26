@@ -1,7 +1,8 @@
 {
-  "domain": {
-    "name": "localhost",          // short url domain
-    "secure": false               // use HTTPS
+  "debug": true,                  // turn on debug mode
+  "domain": {                     // domain settings
+    "name": "localhost",          //   short url domain
+    "secure": false               //   use HTTPS
   },
   "listener": {
     "host": "",                   // HTTP server host
@@ -9,7 +10,7 @@
     "timeout": 30,                // HTTP server timeout
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
-      "tokenlen": 32,             //   token length in bytes
+      "tokenlen": 32              //   token length in bytes
     }
   },
   "projects": {                   // project's settings:

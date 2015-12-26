@@ -11,18 +11,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/golang-lru"
-	"github.com/z0rr0/luss/conf"
 	"gopkg.in/mgo.v2"
 )
 
 const (
-	// SaltsLen in minimal recommended salt length.
-	SaltsLen = 16
+	// saltLent in minimal recommended salt length.
+	saltLent = 16
 	// AnonName is name of anonymous user.
 	// AnonName = "anonymous"
 	// DefaultProject is name of default project.
@@ -56,8 +56,8 @@ const (
 // Conn is database connection structure.
 type Conn struct {
 	S   *mgo.Session
-	m   sync.Mutex
-	Cfg *conf.MongoCfg
+	M   sync.Mutex
+	Cfg *MongoCfg
 }
 
 // domain is settings if main service domain.
@@ -112,11 +112,10 @@ type MongoCfg struct {
 	Debug       bool     `json:"debug"`
 	MongoCred   *mgo.DialInfo
 	Logger      *log.Logger
-	Conn        *Conn
 }
 
-// Cache is database connections pool settings
-type Cache struct {
+// cache is database connections pool settings
+type cache struct {
 	URLs        int `json:"urls"`
 	Projects    int `json:"projects"`
 	URLsLRU     *lru.Cache
@@ -137,10 +136,12 @@ type Config struct {
 	Projects projects `json:"projects"`
 	Db       MongoCfg `json:"database"`
 	Cache    cache    `json:"cache"`
+	Debug    bool     `json:"debug"`
+	Conn     *Conn
 	L        Logger
 }
 
-// Address returns a full short url address.
+// Address returns a full URL address.
 func (c *Config) Address(url string) string {
 	if c.Domain.Secure {
 		return fmt.Sprintf("https://%s/%s", c.Domain.Name, url)
@@ -148,9 +149,70 @@ func (c *Config) Address(url string) string {
 	return fmt.Sprintf("http://%s/%s", c.Domain.Name, url)
 }
 
-// GoodSalts verifies salts values.
-func (c *Config) GoodSalts() bool {
-	return len(c.Listener.Security.Salt) >= SaltsLen
+// Validate validates configuration settings.
+func (c *Config) Validate() error {
+	var err error
+	errFunc := func(msg, field string) error {
+		return fmt.Errorf("invalid configuration \"%v\": %v", field, msg)
+	}
+	// listener and project settings
+	switch {
+	case c.Domain.Name == "":
+		err = errFunc("short url domain can not be empty", "domain.name")
+	case c.Listener.Port == 0:
+		err = errFunc("not initialized server port value", "listener.port")
+	case c.Listener.Timeout == 0:
+		err = errFunc("not initialized server timeout value", "listener.timeout")
+	case c.Listener.Security.TokenLen < 1:
+		err = errFunc("incorrect or empty value", "listener.security.tokenlen")
+	case len(c.Listener.Security.Salt) < saltLent:
+		err = errFunc(fmt.Sprintf("insecure salt value, min length is %v symbols", saltLent), "listener.security.salt")
+	case c.Projects.MaxSpam < 1:
+		err = errFunc("incorrect or empty value", "projects.maxspam")
+	case c.Projects.CleanMin < 1:
+		err = errFunc("incorrect or empty value", "projects.cleanup")
+	case c.Projects.CbNum < 1:
+		err = errFunc("incorrect or empty value", "projects.cbnum")
+	case c.Projects.CbBuf < 1:
+		err = errFunc("incorrect or empty value", "projects.cbbuf")
+	case c.Projects.CbLength < 1:
+		err = errFunc("incorrect or empty value", "projects.cblength")
+	case c.Projects.MaxName < 1:
+		err = errFunc("incorrect or empty value", "projects.maxname")
+	case c.Projects.MaxPack < 1:
+		err = errFunc("incorrect or empty value", "projects.maxpack")
+	}
+	if err != nil {
+		return err
+	}
+	// db connection check is skipped here
+	c.Conn = &Conn{Cfg: &c.Db}
+	// caching enabling
+	if c.Cache.URLs > 0 {
+		ca, err := lru.New(c.Cache.URLs)
+		if err != nil {
+			return err
+		}
+		c.Cache.URLsLRU = ca
+	}
+	if c.Cache.Projects > 0 {
+		ca, err := lru.New(c.Cache.Projects)
+		if err != nil {
+			return err
+		}
+		c.Cache.ProjectsLRU = ca
+	}
+	// create logger
+	logger := Logger{
+		Debug: log.New(ioutil.Discard, "DEBUG [luss]: ", log.Ldate|log.Ltime|log.Lshortfile),
+		Info:  log.New(os.Stdout, "INFO [luss]: ", log.Ldate|log.Ltime|log.Lshortfile),
+		Error: log.New(os.Stderr, "ERROR [luss]: ", log.Ldate|log.Ltime|log.Lshortfile),
+	}
+	if c.Debug {
+		logger.Debug = log.New(os.Stdout, "DEBUG [luss]: ", log.Ldate|log.Ltime|log.Lshortfile)
+	}
+	c.L = logger
+	return nil
 }
 
 // Addrs return an array of available MongoDB connections addresses.

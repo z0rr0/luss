@@ -34,4 +34,4 @@ cp -f $CONFIG $TESTCONFIG
 /bin/sed -i 's/\/\/.*$//g' $TESTCONFIG
 
 cd $LOCALGOPATH
-exec ./bin/luss -debug -config `basename $TESTCONFIG`
+exec ./bin/luss -config `basename $TESTCONFIG`
