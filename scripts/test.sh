@@ -25,8 +25,8 @@ BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
 "test" \
+"conf" \
 # "db" \
-# "conf" \
 # "lru" \
 # "trim" \
 # "prj" \
@@ -35,7 +35,7 @@ PACKAGES_TEST=( \
 
 PACKAGES_CHECK=( \
 "test" \
-# "conf" \
+"conf" \
 # "db" \
 # "trim" \
 # "httph" \

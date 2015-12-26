@@ -26,36 +26,11 @@ import (
 const (
 	// saltLent in minimal recommended salt length.
 	saltLent = 16
-	// AnonName is name of anonymous user.
-	// AnonName = "anonymous"
-	// DefaultProject is name of default project.
-	// DefaultProject = "system"
 )
 
 var (
-	// AnonUser is anonymous user
-	// AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
-	// AnonProject is system project for administrative and anonymous users.
-	// AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
-	configKey key = 0
+	configKey key = 1
 )
-
-// User is structure of user's info.
-// type User struct {
-// 	Name    string    `bson:"name"`
-// 	Key     string    `bson:"key"`
-// 	Role    string    `bson:"role"`
-// 	Created time.Time `bson:"ts"`
-// 	Secret  string    `bson:",omitempty"`
-// }
-
-// // Project is structure of project's info.
-// type Project struct {
-// 	ID       bson.ObjectId `bson:"_id"`
-// 	Name     string        `bson:"name"`
-// 	Users    []User        `bson:"users"`
-// 	Modified time.Time     `bson:"modified"`
-// }
 
 // key is internal type to get Config value from context.
 type key int
