@@ -69,12 +69,14 @@ func connect(c *conf.Conn) error {
 	c.M.Lock()
 	defer c.M.Unlock()
 	if c.S == nil {
+		Logger.Println("new session creation")
 		s, err := mongoDBConnection(c.Cfg)
 		if err != nil {
 			return err
 		}
 		c.S = s
 	} else if c.S.Ping() != nil {
+		Logger.Println("session recreation")
 		s, err := mongoDBConnection(c.Cfg)
 		if err != nil {
 			return err
@@ -93,6 +95,7 @@ func NewSession(c *conf.Conn, primary bool) (*mgo.Session, error) {
 	if (c.S == nil) || (c.S.Ping() != nil) {
 		err := connect(c)
 		if err != nil {
+			Logger.Printf("invalid connect: %v", err)
 			return nil, err
 		}
 	}
@@ -186,6 +189,10 @@ func mongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 		mode = mgo.SecondaryPreferred
 	}
 	session.SetMode(mode, true)
+	if cfg.PoolLimit < 2 {
+		cfg.PoolLimit = 2
+	}
+	session.SetPoolLimit(cfg.PoolLimit)
 	// session.EnsureSafe(&mgo.Safe{W: 1})
 	if cfg.Debug {
 		mgo.SetLogger(cfg.Logger)

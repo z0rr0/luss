@@ -7,6 +7,7 @@ package conf
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,6 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"golang.org/x/net/context"
 
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/mgo.v2"
@@ -29,12 +32,13 @@ const (
 	// DefaultProject = "system"
 )
 
-// var (
-// 	// AnonUser is anonymous user
-// 	AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
-// 	// AnonProject is system project for administrative and anonymous users.
-// 	AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
-// )
+var (
+	// AnonUser is anonymous user
+	// AnonUser = User{Name: AnonName, Role: "user", Created: time.Now().UTC()}
+	// AnonProject is system project for administrative and anonymous users.
+	// AnonProject = Project{Name: DefaultProject, Users: []User{AnonUser}}
+	configKey key = 0
+)
 
 // User is structure of user's info.
 // type User struct {
@@ -52,6 +56,9 @@ const (
 // 	Users    []User        `bson:"users"`
 // 	Modified time.Time     `bson:"modified"`
 // }
+
+// key is internal type to get Config value from context.
+type key int
 
 // Conn is database connection structure.
 type Conn struct {
@@ -109,6 +116,7 @@ type MongoCfg struct {
 	PrimaryRead bool     `json:"primaryread"`
 	Reconnects  int      `json:"reconnects"`
 	RcnTime     int64    `json:"rcntime"`
+	PoolLimit   int      `json:"poollimit"`
 	Debug       bool     `json:"debug"`
 	MongoCred   *mgo.DialInfo
 	Logger      *log.Logger
@@ -242,4 +250,18 @@ func Parse(name string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, err
+}
+
+// NewContext returns a new Context carrying Config.
+func NewContext(c *Config) context.Context {
+	return context.WithValue(context.Background(), configKey, c)
+}
+
+// FromContext extracts the Config from Context.
+func FromContext(ctx context.Context) (*Config, error) {
+	c, ok := ctx.Value(configKey).(*Config)
+	if !ok {
+		return nil, errors.New("not found context config")
+	}
+	return c, nil
 }

@@ -13,15 +13,18 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
+	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/db"
+	"golang.org/x/net/context"
 )
 
 const (
-	// Name is a programm name
+	// Name is a program name
 	Name = "LUSS"
 	// Config is default configuration file name
 	Config = "config.json"
@@ -35,6 +38,13 @@ var (
 	// BuildDate is build date
 	BuildDate = ""
 )
+
+// Handler is a struct to check and handle incoming HTTP request.
+type Handler struct {
+	F      func(ctx context.Context, w http.ResponseWriter, r *http.Request) error
+	Auth   bool
+	Method string
+}
 
 func interrupt() error {
 	c := make(chan os.Signal)
@@ -127,7 +137,7 @@ func main() {
 		s.Close()
 	}()
 	listener := net.JoinHostPort(cfg.Listener.Host, fmt.Sprint(cfg.Listener.Port))
-	cfg.L.Info.Printf("%v running:\n\tlisten: %v\n\tversion=%v [%v %v]", Name, listener, Version, Revision, BuildDate)
+	cfg.L.Info.Printf("%v running (debug=%v):\n\tlisten: %v\n\tversion=%v [%v %v]", Name, cfg.Debug, listener, Version, Revision, BuildDate)
 	server := &http.Server{
 		Addr:           listener,
 		Handler:        http.DefaultServeMux,
@@ -136,44 +146,72 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 		ErrorLog:       cfg.L.Error,
 	}
-	// // TODO: do all handlers
-	// handlers := map[string]func(w http.ResponseWriter, r *http.Request) (int, string){
-	// 	"/test/t":   HandlerTest,
-	// 	"/add/link": httph.HandlerAddLink,
-	// 	"/add/json": httph.HandlerAddJSON,
-	// 	// "/p/add" - POST name+email -> confrim+admin
-	// 	// "/p/edit" - PUT users+roles
-	// 	// "/p/del" - DELETE del+remove links?
-	// 	// "/p/stat" - GET stats: day1-day2
-	// }
+	// TODO: do all handlers
+	handlers := map[string]Handler{
+		"/test/t": Handler{F: core.HandlerTest, Auth: false, Method: "GET"},
+		// "/add/link": httph.HandlerAddLink,
+		// "/add/json": httph.HandlerAddJSON,
+		// "/p/add" - POST name+email -> confrim+admin
+		// "/p/edit" - PUT users+roles
+		// "/p/del" - DELETE del+remove links?
+		// "/p/stat" - GET stats: day1-day2
+	}
 	// // TODO: export/import
+	baseCtx := conf.NewContext(cfg)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		url := "/"
+		if r.URL.Path != url {
+			url = strings.TrimRight(r.URL.Path, "/")
+		}
+		start, code := time.Now(), http.StatusOK
+		defer func() {
+			cfg.L.Info.Printf("%v  %v\t%v", code, time.Since(start), url)
+		}()
+		ctx, cancel := context.WithCancel(baseCtx)
+		defer cancel()
+		s, err := db.NewSession(cfg.Conn, false)
+		if err != nil {
+			code = http.StatusInternalServerError
+			http.Error(w, http.StatusText(code), code)
+			return
+		}
+		defer s.Close()
+		ctx = db.NewContext(ctx, s)
+		// try to find a service handler
+		rh, ok := handlers[url]
+		if ok {
+			if (rh.Method != "ANY") && (rh.Method != r.Method) {
+				code = http.StatusMethodNotAllowed
+				http.Error(w, http.StatusText(code), code)
+				return
+			}
+			err = rh.F(ctx, w, r)
+			if err != nil {
+				code = http.StatusInternalServerError
+				http.Error(w, http.StatusText(code), code)
+				return
+			}
+		}
 
-	// http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	// 	url := strings.TrimRight(r.URL.Path, "/")
-	// 	start, code := time.Now().UTC(), http.StatusOK
-	// 	defer func() {
-	// 		utils.LoggerInfo.Printf("%v  %v\t%v", code, time.Now().Sub(start), url)
-	// 	}()
-	// 	// try to find a service handler
-	// 	f, ok := handlers[url]
-	// 	if ok {
-	// 		code, msg := f(w, r)
-	// 		if code != http.StatusOK {
-	// 			http.Error(w, msg, code)
-	// 		}
-	// 		return
-	// 	}
-	// 	if isShortUrl.MatchString(url) {
-	// 		link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
-	// 		if err == nil {
-	// 			code = http.StatusFound
-	// 			http.Redirect(w, r, link, code)
-	// 			return
-	// 		}
-	// 	}
-	// 	code = http.StatusNotFound
-	// 	http.NotFound(w, r)
-	// })
+		// if ok {
+		// 	code, msg := f(w, r)
+		// 	if code != http.StatusOK {
+		// 		http.Error(w, msg, code)
+		// 	}
+		// 	return
+		// }
+		// if isShortUrl.MatchString(url) {
+		// 	link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
+		// 	if err == nil {
+		// 		code = http.StatusFound
+		// 		http.Redirect(w, r, link, code)
+		// 		return
+		// 	}
+		// }
+		// code = http.StatusNotFound
+		// http.NotFound(w, r)
+	})
 
 	// run server
 	go func() {
