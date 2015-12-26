@@ -24,9 +24,9 @@ TESTCONFIG="$LOCALGOPATH/luss.json"
 BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
-"test" \
-"conf" \
-# "db" \
+# "test" \
+# "conf" \
+"db" \
 # "lru" \
 # "trim" \
 # "prj" \
@@ -34,9 +34,9 @@ PACKAGES_TEST=( \
 )
 
 PACKAGES_CHECK=( \
-"test" \
-"conf" \
-# "db" \
+# "test" \
+# "conf" \
+"db" \
 # "trim" \
 # "httph" \
 # "lru" \
