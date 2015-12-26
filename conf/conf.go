@@ -26,10 +26,8 @@ import (
 const (
 	// saltLent in minimal recommended salt length.
 	saltLent = 16
-)
-
-var (
-	configKey key = 1
+	// configKey is internal context key
+	configKey key = 0
 )
 
 // key is internal type to get Config value from context.

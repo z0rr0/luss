@@ -24,23 +24,17 @@ TESTCONFIG="$LOCALGOPATH/luss.json"
 BUILD="$REPO/scripts/build.sh"
 
 PACKAGES_TEST=( \
-# "test" \
-# "conf" \
+"test" \
+"conf" \
 "db" \
-# "lru" \
 # "trim" \
-# "prj" \
-# "httph" \
 )
 
 PACKAGES_CHECK=( \
-# "test" \
-# "conf" \
+"test" \
+"conf" \
 "db" \
 # "trim" \
-# "httph" \
-# "lru" \
-# "prj" \
 )
 
 if [ -z "$GOPATH" ]; then

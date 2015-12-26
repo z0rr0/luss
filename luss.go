@@ -157,7 +157,6 @@ func main() {
 		// "/p/stat" - GET stats: day1-day2
 	}
 	// // TODO: export/import
-	baseCtx := conf.NewContext(cfg)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		url := "/"
@@ -168,7 +167,7 @@ func main() {
 		defer func() {
 			cfg.L.Info.Printf("%v  %v\t%v", code, time.Since(start), url)
 		}()
-		ctx, cancel := context.WithCancel(baseCtx)
+		ctx, cancel := context.WithCancel(conf.NewContext(cfg))
 		defer cancel()
 		s, err := db.NewSession(cfg.Conn, false)
 		if err != nil {
