@@ -61,3 +61,31 @@ func TestToken(t *testing.T) {
 		t.Errorf("invalid behavior: %v != %v", p2, strToken)
 	}
 }
+
+func TestValidToken(t *testing.T) {
+	cfg, err := conf.Parse(test.TcConfigName())
+	if err != nil {
+		t.Fatalf("invalid behavior")
+	}
+	err = cfg.Validate()
+	if err != nil {
+		t.Fatalf("invalid behavior")
+	}
+	// values for tokenlen=20
+	examples := map[string]bool{
+		"":    false,
+		"a":   false,
+		"abc": false,
+		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a32J": false,
+		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320": true,
+		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a3J0": false,
+		"J1f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320": false,
+		"10J955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320": false,
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": true,
+	}
+	for token, result := range examples {
+		if ValidToken(token, cfg) != result {
+			t.Errorf("invalid result: %v", token)
+		}
+	}
+}

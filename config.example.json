@@ -10,7 +10,7 @@
     "timeout": 30,                // HTTP server timeout
     "security": {                 // Security settings
       "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
-      "tokenlen": 32              //   token length in bytes
+      "tokenlen": 20              //   token length in bytes
     }
   },
   "projects": {                   // project's settings:

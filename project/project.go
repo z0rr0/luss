@@ -9,7 +9,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
@@ -20,15 +22,17 @@ import (
 )
 
 const (
+	// Anonymous is a name of anonymous users and projects.
+	Anonymous      = "anonymous"
 	userKey    key = 1
 	projectKey key = 2
 )
 
 var (
 	// AnonUser is anonymous user.
-	AnonUser = &User{Name: "anonymous"}
+	AnonUser = &User{Name: Anonymous}
 	// AnonProject is anonymous project.
-	AnonProject = &Project{Name: "anonymous", Users: []User{*AnonUser}}
+	AnonProject = &Project{Name: Anonymous, Users: []User{*AnonUser}}
 )
 
 type key int
@@ -75,7 +79,6 @@ func genToken(c *conf.Config) (string, string, error) {
 	d.Write([]byte(c.Listener.Security.Salt))
 	d.Write(b)
 	d.Read(h)
-	// token=rnd[TokenLen]+hash(salt+rnd)[TokenLen]
 	return hex.EncodeToString(b), hex.EncodeToString(h), nil
 }
 
@@ -94,6 +97,12 @@ func EqualBytes(x, y []byte) bool {
 		}
 	}
 	return result
+}
+
+// ValidToken verifies the token using its easy properties.
+func ValidToken(token string, c *conf.Config) bool {
+	isToken := regexp.MustCompile(fmt.Sprintf("^[0-9a-f]{%v}$", 4*c.Listener.Security.TokenLen))
+	return isToken.MatchString(token)
 }
 
 // checkToken verifies the token, checks length and hash.
