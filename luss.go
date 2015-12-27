@@ -125,6 +125,12 @@ func main() {
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
+			// pre-authentication quickly checks a token value
+			if rh.Auth && !project.IsToken(r.PostFormValue("token"), cfg) {
+				code = http.StatusMethodNotAllowed
+				http.Error(w, http.StatusText(code), code)
+				return
+			}
 			// open database session
 			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
@@ -137,7 +143,12 @@ func main() {
 			ctx = db.NewContext(ctx, s)
 			// authentication
 			ctx, err := project.Authenticate(ctx, r)
-			if err != nil {
+			switch {
+			case err == nil:
+				cfg.L.Debug.Println("successful authentication")
+			case err == project.ErrAnonymous && !rh.Auth:
+				cfg.L.Debug.Println("allowed anonymous authentication")
+			default:
 				cfg.L.Error.Println(err)
 				code = http.StatusMethodNotAllowed
 				http.Error(w, http.StatusText(code), code)

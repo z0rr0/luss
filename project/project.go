@@ -33,6 +33,8 @@ var (
 	AnonUser = &User{Name: Anonymous}
 	// AnonProject is anonymous project.
 	AnonProject = &Project{Name: Anonymous, Users: []User{*AnonUser}}
+	// ErrAnonymous is error of anonymous authentication
+	ErrAnonymous = errors.New("anonymous request")
 )
 
 type key int
@@ -99,8 +101,8 @@ func EqualBytes(x, y []byte) bool {
 	return result
 }
 
-// ValidToken verifies the token using its easy properties.
-func ValidToken(token string, c *conf.Config) bool {
+// IsToken verifies the token using its easy properties.
+func IsToken(token string, c *conf.Config) bool {
 	isToken := regexp.MustCompile(fmt.Sprintf("^[0-9a-f]{%v}$", 4*c.Listener.Security.TokenLen))
 	return isToken.MatchString(token)
 }
@@ -166,7 +168,7 @@ func Authenticate(ctx context.Context, r *http.Request) (context.Context, error)
 		// it is anonymous request
 		ctx = setProjectContext(ctx, AnonProject)
 		ctx = setUserContext(ctx, AnonUser)
-		return ctx, nil
+		return ctx, ErrAnonymous
 	}
 	c, err := conf.FromContext(ctx)
 	if err != nil {
