@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"time"
 
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
+	"github.com/z0rr0/luss/project"
 	"golang.org/x/net/context"
 )
 
@@ -23,23 +25,19 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
-	s, err := db.NewSession(c.Conn, true)
-	if err != nil {
-		c.L.Error.Println(err)
-		return err
-	}
-	defer s.Close()
-	ctx = db.NewContext(ctx, s)
 	coll, err := db.C(ctx, "test")
 	if err != nil {
 		c.L.Error.Println(err)
 		return err
 	}
-	query := r.URL.Query()
-	if c.Debug && query.Get("write") == "yes" {
+	command := r.FormValue("write")
+	switch {
+	case c.Debug && command == "add":
 		err = coll.Insert(bson.M{"ts": time.Now()})
+	case c.Debug && command == "del":
+		err = coll.Remove(nil)
 	}
-	if err != nil {
+	if err != nil && err != mgo.ErrNotFound {
 		c.L.Error.Println(err)
 		return err
 	}
@@ -48,6 +46,17 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 		c.L.Error.Println(err)
 		return err
 	}
+	u, err := project.ExtractUser(ctx)
+	if err != nil {
+		c.L.Error.Println(err)
+		return err
+	}
+	p, err := project.ExtractProject(ctx)
+	if err != nil {
+		c.L.Error.Println(err)
+		return err
+	}
+	c.L.Debug.Printf("user=%v, project=%v", u, p)
 	fmt.Fprintf(w, "found %v items", n)
 	return nil
 }

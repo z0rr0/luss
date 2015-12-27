@@ -21,6 +21,7 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/db"
+	"github.com/z0rr0/luss/project"
 	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
 )
@@ -102,9 +103,11 @@ func main() {
 	}
 	handlers := map[string]Handler{
 		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		// "/add/link"
+		// "/api/add/"
+		// "/api/add/json"
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		url := "/"
 		if r.URL.Path != url {
 			url = strings.TrimRight(r.URL.Path, "/")
@@ -122,8 +125,27 @@ func main() {
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
-			err = rh.F(ctx, w, r)
+			// open database session
+			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
+				cfg.L.Error.Println(err)
+				code = http.StatusMethodNotAllowed
+				http.Error(w, http.StatusText(code), code)
+				return
+			}
+			defer s.Close()
+			ctx = db.NewContext(ctx, s)
+			// authentication
+			ctx, err := project.Authenticate(ctx, r)
+			if err != nil {
+				cfg.L.Error.Println(err)
+				code = http.StatusMethodNotAllowed
+				http.Error(w, http.StatusText(code), code)
+				return
+			}
+			// call a found handler
+			if err := rh.F(ctx, w, r); err != nil {
+				cfg.L.Error.Println(err)
 				code = http.StatusInternalServerError
 				http.Error(w, http.StatusText(code), code)
 				return
