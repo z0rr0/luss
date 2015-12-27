@@ -49,6 +49,11 @@ type Item struct {
 	ID bson.ObjectId `bson:"_id"`
 }
 
+// ItemURL is any DB item, it contains only short URL identifier.
+type ItemURL struct {
+	ID int64 `bson:"_id"`
+}
+
 // NewContext returns a new Context carrying MongoDB session.
 func NewContext(ctx context.Context, s *mgo.Session) context.Context {
 	return context.WithValue(ctx, sessionKey, s)
@@ -189,10 +194,9 @@ func mongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 		mode = mgo.SecondaryPreferred
 	}
 	session.SetMode(mode, true)
-	if cfg.PoolLimit < 2 {
-		cfg.PoolLimit = 2
+	if cfg.PoolLimit > 1 {
+		session.SetPoolLimit(cfg.PoolLimit)
 	}
-	session.SetPoolLimit(cfg.PoolLimit)
 	// session.EnsureSafe(&mgo.Safe{W: 1})
 	if cfg.Debug {
 		mgo.SetLogger(cfg.Logger)

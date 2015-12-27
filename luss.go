@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/db"
+	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
 )
 
@@ -43,6 +45,7 @@ var (
 type Handler struct {
 	F      func(ctx context.Context, w http.ResponseWriter, r *http.Request) error
 	Auth   bool
+	API    bool
 	Method string
 }
 
@@ -51,20 +54,6 @@ func interrupt() error {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	return fmt.Errorf("%v", <-c)
 }
-
-// HandlerTest is a response for test request.
-// func HandlerTest(w http.ResponseWriter, r *http.Request) (int, string) {
-//     fmt.Fprintf(w, "%v: %v %v\n", Name, Version, Revision)
-//     q := r.URL.Query()
-//     if (q.Get("write") == "yes") && (utils.Mode == utils.DebugMode) {
-//         if err := httph.TestWrite(utils.Cfg.Conf); err != nil {
-//             fmt.Fprintln(w, "data is not written")
-//         } else {
-//             fmt.Fprintln(w, "data is written")
-//         }
-//     }
-//     return http.StatusOK, ""
-// }
 
 func main() {
 	var err error
@@ -75,10 +64,6 @@ func main() {
 	}()
 	version := flag.Bool("version", false, "show version")
 	config := flag.String("config", Config, "configuration file")
-
-	// admin := flag.String("admin", "", "add new admin user")
-	// encode := flag.Int64("encode", 0, "encode numeric value to string")
-	// decode := flag.String("decode", "", "decode string value to numeric one")
 	flag.Parse()
 	if *version {
 		fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
@@ -86,36 +71,7 @@ func main() {
 	}
 	// max int64 9223372036854775807 => AzL8n0Y58m7
 	// real, max decode/encode 839299365868340223 <=> zzzzzzzzzz
-	// isDecoded := regexp.MustCompile(fmt.Sprintf("^[%s]{1,10}$", trim.Alphabet))
-	// isShortUrl := regexp.MustCompile(fmt.Sprintf("^/[%s]{1,10}$", trim.Alphabet))
-	// CLI commands
-	// switch {
-	// case *admin != "":
-	//     cf, err := utils.InitFileConfig(*config, *debug)
-	//     if err != nil {
-	//         utils.LoggerError.Panicf("init config error [%v]", err)
-	//     }
-	//     if u, err := prj.CreateAdmin(*admin, cf); err != nil {
-	//         utils.LoggerError.Panicf("create admin error [%v]\n\tProbably this user already exists.", err)
-	//     } else {
-	//         fmt.Printf("Administrator is created:\n\tname: %v\n\ttoken: %v\n", u.Name, u.Secret)
-	//     }
-	//     return
-	// case *encode > 0:
-	//     // max 9223372036854775807 => AzL8n0Y58m7
-	//     fmt.Printf("encoding:\n\t%v => %v\n", *encode, trim.Encode(*encode))
-	//     return
-	// case *decode != "":
-	//     if !isDecoded.MatchString(*decode) {
-	//         fmt.Printf("ERROR: incorrect 'decode' value: %v\n", *decode)
-	//     }
-	//     if dv, derr := trim.Decode(*decode); derr != nil {
-	//         fmt.Printf("ERROR: incorrect 'decode' value: %v\n", *decode)
-	//     } else {
-	//         fmt.Printf("decoding:\n\t%v => %v\n", *decode, dv)
-	//     }
-	//     return
-	// }
+	isShortURL := regexp.MustCompile(fmt.Sprintf("^/[%s]{1,10}$", trim.Alphabet))
 	// configuration initialization
 	cfg, err := conf.Parse(*config)
 	if err != nil {
@@ -124,17 +80,15 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		log.Panicf("config validate error [%v]", err)
 	}
+	// check db connection
+	s, err := db.NewSession(cfg.Conn, true)
+	if err != nil {
+		log.Panic(err)
+	}
+	s.Close()
 	errc := make(chan error)
 	go func() {
 		errc <- interrupt()
-	}()
-	// check db connection
-	go func() {
-		s, err := db.NewSession(cfg.Conn, true)
-		if err != nil {
-			errc <- err
-		}
-		s.Close()
 	}()
 	listener := net.JoinHostPort(cfg.Listener.Host, fmt.Sprint(cfg.Listener.Port))
 	cfg.L.Info.Printf("%v running (debug=%v):\n\tlisten: %v\n\tversion=%v [%v %v]", Name, cfg.Debug, listener, Version, Revision, BuildDate)
@@ -146,17 +100,9 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 		ErrorLog:       cfg.L.Error,
 	}
-	// TODO: do all handlers
 	handlers := map[string]Handler{
-		"/test/t": Handler{F: core.HandlerTest, Auth: false, Method: "GET"},
-		// "/add/link": httph.HandlerAddLink,
-		// "/add/json": httph.HandlerAddJSON,
-		// "/p/add" - POST name+email -> confrim+admin
-		// "/p/edit" - PUT users+roles
-		// "/p/del" - DELETE del+remove links?
-		// "/p/stat" - GET stats: day1-day2
+		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
 	}
-	// // TODO: export/import
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		url := "/"
@@ -169,15 +115,6 @@ func main() {
 		}()
 		ctx, cancel := context.WithCancel(conf.NewContext(cfg))
 		defer cancel()
-		s, err := db.NewSession(cfg.Conn, false)
-		if err != nil {
-			code = http.StatusInternalServerError
-			http.Error(w, http.StatusText(code), code)
-			return
-		}
-		defer s.Close()
-		ctx = db.NewContext(ctx, s)
-		// try to find a service handler
 		rh, ok := handlers[url]
 		if ok {
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
@@ -191,27 +128,14 @@ func main() {
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
+			return
+		} else if isShortURL.MatchString(url) {
+			cfg.L.Debug.Println("short url")
+			return
 		}
-
-		// if ok {
-		// 	code, msg := f(w, r)
-		// 	if code != http.StatusOK {
-		// 		http.Error(w, msg, code)
-		// 	}
-		// 	return
-		// }
-		// if isShortUrl.MatchString(url) {
-		// 	link, err := httph.HandlerRedirect(strings.TrimLeft(url, "/"), r)
-		// 	if err == nil {
-		// 		code = http.StatusFound
-		// 		http.Redirect(w, r, link, code)
-		// 		return
-		// 	}
-		// }
-		// code = http.StatusNotFound
-		// http.NotFound(w, r)
+		code = http.StatusNotFound
+		http.NotFound(w, r)
 	})
-
 	// run server
 	go func() {
 		errc <- server.ListenAndServe()

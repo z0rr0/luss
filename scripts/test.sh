@@ -27,14 +27,14 @@ PACKAGES_TEST=( \
 "test" \
 "conf" \
 "db" \
-# "trim" \
+"trim" \
 )
 
 PACKAGES_CHECK=( \
 "test" \
 "conf" \
 "db" \
-# "trim" \
+"trim" \
 )
 
 if [ -z "$GOPATH" ]; then
@@ -68,6 +68,7 @@ cp -f $CONFIG $TESTCONFIG
 
 cd $REPO
 echo "Run go vet"
+echo "go-vet - $PACKAGE" && $GOBIN vet $PACKAGE
 for p in ${PACKAGES_CHECK[@]}; do
     echo "go-vet - $PACKAGE/$p"
     $GOBIN vet $PACKAGE/$p
@@ -76,6 +77,7 @@ done
 GOLINT=`which golint`
 if [[ -x "$GOLINT" ]]; then
     echo "Run golint"
+    echo "go-lint - $PACKAGE" && $GOLINT $PACKAGE
     for p in ${PACKAGES_CHECK[@]}; do
         echo "go-lint - $PACKAGE/$p"
         $GOLINT $PACKAGE/$p
