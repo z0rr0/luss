@@ -9,6 +9,7 @@ import (
 
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/test"
+	"golang.org/x/net/context"
 )
 
 func TestEqualBytes(t *testing.T) {
@@ -40,53 +41,31 @@ func TestToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid behavior")
 	}
-	if _, err := checkToken("", cfg); err == nil {
+	ctx, cancel := context.WithCancel(conf.NewContext(cfg))
+	defer cancel()
+
+	if _, err := CheckToken(ctx, ""); err != ErrAnonymous {
 		t.Error("invalid behavior")
 	}
-	if _, err := checkToken("a", cfg); err == nil {
+	if _, err := CheckToken(ctx, "a"); err == nil {
 		t.Error("invalid behavior")
 	}
-	if _, err := checkToken("abc", cfg); err == nil {
+	if _, err := CheckToken(ctx, "abc"); err == nil {
 		t.Error("invalid behavior")
 	}
 	p1, p2, err := genToken(cfg)
 	if err != nil {
 		t.Error(err)
 	}
-	strToken, err := checkToken(p1+p2, cfg)
+	ctx, err = CheckToken(ctx, p1+p2)
+	if err != nil {
+		t.Error(err)
+	}
+	strToken, err := ExtractTokenKey(ctx)
 	if err != nil {
 		t.Error(err)
 	}
 	if p2 != strToken {
 		t.Errorf("invalid behavior: %v != %v", p2, strToken)
-	}
-}
-
-func TestIsToken(t *testing.T) {
-	cfg, err := conf.Parse(test.TcConfigName())
-	if err != nil {
-		t.Fatalf("invalid behavior")
-	}
-	err = cfg.Validate()
-	if err != nil {
-		t.Fatalf("invalid behavior")
-	}
-	// values for tokenlen=20
-	examples := map[string]bool{
-		"":    false,
-		"a":   false,
-		"abc": false,
-		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a32J":  false,
-		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320":  true,
-		"10f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a3J0":  false,
-		"J1f955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320":  false,
-		"10J955da505cc4293e418c2a69b5e5c296a8e961743b6f4b9a320602df977687d61743b6f4b9a320":  false,
-		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef":  true,
-		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefa": false,
-	}
-	for token, result := range examples {
-		if IsToken(token, cfg) != result {
-			t.Errorf("invalid result: %v", token)
-		}
 	}
 }

@@ -11,7 +11,9 @@ import (
 	"math"
 	"sort"
 
+	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
+	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 )
 
@@ -89,4 +91,36 @@ func Decode(x string) (int64, error) {
 		result = -result
 	}
 	return result, nil
+}
+
+// Lengthen converts a short link to original one.
+func Lengthen(ctx context.Context, short string) (string, error) {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	cache := c.Cache.URLsLRU
+	link, ok := cache.Get(short)
+	if ok {
+		return link.(string), nil
+	}
+	num, err := Decode(short)
+	if err != nil {
+		return "", err
+	}
+	s, err := db.NewSession(c.Conn, false)
+	if err != nil {
+		return "", err
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return "", err
+	}
+	// err = coll.Find(bson.M{"_id": num, "active": true}).One(cu)
+	// if err != nil {
+	// 	return "", err
+	// }
+	cache.Add(short, link)
+	return link, nil
 }

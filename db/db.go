@@ -117,6 +117,11 @@ func C(ctx context.Context, name string) (*mgo.Collection, error) {
 	if err != nil {
 		return nil, err
 	}
+	return Coll(s, name)
+}
+
+// Coll return database collection pointer.
+func Coll(s *mgo.Session, name string) (*mgo.Collection, error) {
 	cname, ok := Colls[name]
 	if !ok {
 		return nil, errors.New("unknown collection name")
