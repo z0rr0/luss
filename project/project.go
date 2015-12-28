@@ -9,9 +9,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
@@ -26,6 +23,7 @@ const (
 	Anonymous      = "anonymous"
 	userKey    key = 1
 	projectKey key = 2
+	tokenKey   key = 3
 )
 
 var (
@@ -101,25 +99,25 @@ func EqualBytes(x, y []byte) bool {
 	return result
 }
 
-// IsToken verifies the token using its easy properties.
-func IsToken(token string, c *conf.Config) bool {
-	isToken := regexp.MustCompile(fmt.Sprintf("^[0-9a-f]{%v}$", 4*c.Listener.Security.TokenLen))
-	return isToken.MatchString(token)
-}
-
-// checkToken verifies the token, checks length and hash.
-// It returns the 2nd (stored in DB) token part and error value.
-func checkToken(token string, c *conf.Config) (string, error) {
+// CheckToken verifies the token, checks length and hash value.
+// If the token is valid, then its 2nd part (hash) will be added to the returned context.
+// It also marks empty token as ErrAnonymous error.
+func CheckToken(ctx context.Context, token string) (context.Context, error) {
 	l := len(token)
 	if l == 0 {
-		return "", errors.New("empty token value")
+		return setTokenContext(ctx, ""), ErrAnonymous
 	}
 	hexToken, err := hex.DecodeString(token)
 	if err != nil {
-		return "", err
+		return ctx, err
+	}
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return ctx, err
 	}
 	n := len(hexToken)
-	h := make([]byte, n/2)
+	// calculate token hash
+	h := make([]byte, c.Listener.Security.TokenLen)
 	d := sha3.NewShake256()
 	d.Write([]byte(c.Listener.Security.Salt))
 	d.Write(hexToken[:n/2])
@@ -127,9 +125,10 @@ func checkToken(token string, c *conf.Config) (string, error) {
 	// don't use bytes.Equal here, because
 	// timing attack can be applicable for this method.
 	if !EqualBytes(h, hexToken[n/2:]) {
-		return "", errors.New("invalid token")
+		return ctx, errors.New("invalid token")
 	}
-	return token[l/2:], nil
+	// hex.EncodeToString(h) == token[l/2:]
+	return setTokenContext(ctx, token[l/2:]), nil
 }
 
 // setUserContext saves User struct to the Context.
@@ -140,6 +139,11 @@ func setUserContext(ctx context.Context, u *User) context.Context {
 // setUserContext saves Project struct to the Context.
 func setProjectContext(ctx context.Context, p *Project) context.Context {
 	return context.WithValue(ctx, projectKey, p)
+}
+
+// setUserContext saves Project struct to the Context.
+func setTokenContext(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, tokenKey, token)
 }
 
 // ExtractUser extracts user from from context.
@@ -160,11 +164,25 @@ func ExtractProject(ctx context.Context) (*Project, error) {
 	return p, nil
 }
 
+// ExtractTokenKey extracts user's  from from context.
+func ExtractTokenKey(ctx context.Context) (string, error) {
+	t, ok := ctx.Value(tokenKey).(string)
+	if !ok {
+		return "", errors.New("not found context token")
+	}
+	return t, nil
+}
+
 // Authenticate checks user's authentication.
-func Authenticate(ctx context.Context, r *http.Request) (context.Context, error) {
+// It doesn't validate user's token value, only identifies anonymous
+// and authenticated requests and writes Project and User to new context.
+func Authenticate(ctx context.Context) (context.Context, error) {
 	var u *User
-	token := r.PostFormValue("token")
-	if token == "" {
+	t, err := ExtractTokenKey(ctx)
+	if err != nil {
+		return ctx, err
+	}
+	if t == "" {
 		// it is anonymous request
 		ctx = setProjectContext(ctx, AnonProject)
 		ctx = setUserContext(ctx, AnonUser)
@@ -172,11 +190,6 @@ func Authenticate(ctx context.Context, r *http.Request) (context.Context, error)
 	}
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return ctx, err
-	}
-	t, err := checkToken(token, c)
-	if err != nil {
-		c.L.Error.Println(err)
 		return ctx, err
 	}
 	// use already opened session from context

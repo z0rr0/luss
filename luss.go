@@ -128,9 +128,11 @@ func main() {
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
-			// pre-authentication quickly checks a token value
-			if rh.Auth && !project.IsToken(r.PostFormValue("token"), cfg) {
-				code = http.StatusMethodNotAllowed
+			// pre-authentication: quickly check a token value
+			ctx, err := project.CheckToken(ctx, r.PostFormValue("token"))
+			if err != nil && (rh.Auth || err != project.ErrAnonymous) {
+				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
+				code = http.StatusUnauthorized
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
@@ -138,14 +140,14 @@ func main() {
 			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
 				cfg.L.Error.Println(err)
-				code = http.StatusMethodNotAllowed
+				code = http.StatusInternalServerError
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
 			defer s.Close()
 			ctx = db.NewContext(ctx, s)
 			// authentication
-			ctx, err := project.Authenticate(ctx, r)
+			ctx, err = project.Authenticate(ctx)
 			switch {
 			case err == nil:
 				cfg.L.Debug.Println("successful authentication")
