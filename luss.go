@@ -101,8 +101,11 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 		ErrorLog:       cfg.L.Error,
 	}
+	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		"/test": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		// "/notfoud"
+		// "/error"
 		// "/add/link"
 		// "/api/add/"
 		// "/api/add/json"
@@ -150,7 +153,7 @@ func main() {
 				cfg.L.Debug.Println("allowed anonymous authentication")
 			default:
 				cfg.L.Error.Println(err)
-				code = http.StatusMethodNotAllowed
+				code = http.StatusUnauthorized
 				http.Error(w, http.StatusText(code), code)
 				return
 			}
