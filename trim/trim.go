@@ -150,3 +150,8 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	cache.Add(short, cu)
 	return cu, nil
 }
+
+// Shorten returns new short link.
+// func Shorten(ctx context.Context, original string) (*CustomURL, error) {
+
+// }
