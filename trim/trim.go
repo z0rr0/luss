@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -26,6 +28,30 @@ var (
 	// basis is a numeral system basis
 	basis = int64(len(Alphabet))
 )
+
+// CallBack is callback info.
+type CallBack struct {
+	URL       string `bson:"u"`
+	Method    string `bson:"m"`
+	Parameter string `bson:"p"`
+}
+
+// CustomURL stores info about user's URL.
+type CustomURL struct {
+	ID        int64     `bson:"_id"`
+	Active    bool      `bson:"active"`
+	Project   string    `bson:"prj"`
+	Tag       string    `bson:"tag"`
+	Original  string    `bson:"orig"`
+	User      string    `bson:"u"`
+	TTL       time.Time `bson:"ttl"`
+	NotDirect bool      `bson:"ndr"`
+	Spam      float64   `bson:"spam"`
+	Created   time.Time `bson:"ts"`
+	Modified  time.Time `bson:"mod"`
+	Cb        CallBack  `bson:"cb"`
+	Short     string    `bson:",omitempty"`
+}
 
 // getMax returns a max short URLs, so it should be called
 // in locked primary mode to get actual data.
@@ -94,33 +120,33 @@ func Decode(x string) (int64, error) {
 }
 
 // Lengthen converts a short link to original one.
-func Lengthen(ctx context.Context, short string) (string, error) {
+func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	cache := c.Cache.URLsLRU
-	link, ok := cache.Get(short)
-	if ok {
-		return link.(string), nil
+	if cu, ok := cache.Get(short); ok {
+		return cu.(*CustomURL), nil
 	}
 	num, err := Decode(short)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	s, err := db.NewSession(c.Conn, false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer s.Close()
 	coll, err := db.Coll(s, "urls")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	// err = coll.Find(bson.M{"_id": num, "active": true}).One(cu)
-	// if err != nil {
-	// 	return "", err
-	// }
-	cache.Add(short, link)
-	return link, nil
+	cu := &CustomURL{}
+	err = coll.Find(bson.M{"_id": num, "active": true}).One(cu)
+	if err != nil {
+		return nil, err
+	}
+	cache.Add(short, cu)
+	return cu, nil
 }

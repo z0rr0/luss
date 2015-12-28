@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"time"
 
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/project"
+	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // HandlerTest handles test GET request.
@@ -59,4 +59,15 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 	c.L.Debug.Printf("user=%v, project=%v", u, p)
 	fmt.Fprintf(w, "found %v items", n)
 	return nil
+}
+
+// HandlerRedirect searches saved original URL by a short one.
+func HandlerRedirect(ctx context.Context, short string) (string, error) {
+	cu, err := trim.Lengthen(ctx, short)
+	if err != nil {
+		return "", err
+	}
+	// TODO: check direct redirect
+	// TODO: add callback handler call
+	return cu.Original, nil
 }

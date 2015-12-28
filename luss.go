@@ -24,6 +24,7 @@ import (
 	"github.com/z0rr0/luss/project"
 	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
+	"gopkg.in/mgo.v2"
 )
 
 const (
@@ -103,7 +104,7 @@ func main() {
 	}
 	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/test": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
 		// "/notfoud"
 		// "/error"
 		// "/add/link"
@@ -111,12 +112,15 @@ func main() {
 		// "/api/add/json"
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		url := "/"
+		errResp, url := false, "/"
 		if r.URL.Path != url {
 			url = strings.TrimRight(r.URL.Path, "/")
 		}
 		start, code := time.Now(), http.StatusOK
 		defer func() {
+			if errResp {
+				http.Error(w, http.StatusText(code), code)
+			}
 			cfg.L.Info.Printf("%v  %v\t%v", code, time.Since(start), url)
 		}()
 		ctx, cancel := context.WithCancel(conf.NewContext(cfg))
@@ -124,24 +128,21 @@ func main() {
 		rh, ok := handlers[url]
 		if ok {
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
-				code = http.StatusMethodNotAllowed
-				http.Error(w, http.StatusText(code), code)
+				errResp, code = true, http.StatusMethodNotAllowed
 				return
 			}
 			// pre-authentication: quickly check a token value
 			ctx, err := project.CheckToken(ctx, r.PostFormValue("token"))
 			if err != nil && (rh.Auth || err != project.ErrAnonymous) {
 				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
-				code = http.StatusUnauthorized
-				http.Error(w, http.StatusText(code), code)
+				errResp, code = true, http.StatusUnauthorized
 				return
 			}
 			// open database session
 			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
 				cfg.L.Error.Println(err)
-				code = http.StatusInternalServerError
-				http.Error(w, http.StatusText(code), code)
+				errResp, code = true, http.StatusInternalServerError
 				return
 			}
 			defer s.Close()
@@ -155,20 +156,33 @@ func main() {
 				cfg.L.Debug.Println("allowed anonymous authentication")
 			default:
 				cfg.L.Error.Println(err)
-				code = http.StatusUnauthorized
-				http.Error(w, http.StatusText(code), code)
+				errResp, code = true, http.StatusUnauthorized
 				return
 			}
 			// call a found handler
 			if err := rh.F(ctx, w, r); err != nil {
 				cfg.L.Error.Println(err)
-				code = http.StatusInternalServerError
-				http.Error(w, http.StatusText(code), code)
+				errResp, code = true, http.StatusInternalServerError
 				return
 			}
 			return
 		} else if isShortURL.MatchString(url) {
-			cfg.L.Debug.Println("short url")
+			if r.Method != "GET" {
+				errResp, code = true, http.StatusMethodNotAllowed
+				return
+			}
+			link, err := core.HandlerRedirect(ctx, strings.TrimLeft(url, "/"))
+			switch {
+			case err == nil:
+				code = http.StatusFound
+				http.Redirect(w, r, link, code)
+			case err == mgo.ErrNotFound:
+				code = http.StatusNotFound
+				http.NotFound(w, r)
+			default:
+				cfg.L.Error.Println(err)
+				errResp, code = true, http.StatusInternalServerError
+			}
 			return
 		}
 		code = http.StatusNotFound
