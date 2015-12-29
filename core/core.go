@@ -22,11 +22,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var (
-	// teotw (the end of the World) is a default links TTL value to simplify database requests.
-	teotw = time.Date(9999, time.January, 1, 1, 0, 0, 0, time.UTC)
-)
-
 // HandlerTest handles test GET request.
 func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	c, err := conf.FromContext(ctx)
@@ -85,7 +80,7 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) err
 		err    error
 		rawURL string
 		u      *url.URL
-		ttl    time.Time
+		ttl    *time.Time
 	)
 	c, err := conf.FromContext(ctx)
 	if err != nil {
@@ -106,10 +101,8 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) err
 		if err != nil {
 			return err
 		}
-		ttl = time.Now().Add(time.Duration(t) * time.Hour).UTC()
-	} else {
-		// sorry, but all data will deactivated after this date.
-		ttl = teotw
+		expire := time.Now().Add(time.Duration(t) * time.Hour).UTC()
+		ttl = &expire
 	}
 	if p := r.PostFormValue("nd"); p != "" {
 		nd = true

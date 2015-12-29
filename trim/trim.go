@@ -39,18 +39,18 @@ type CallBack struct {
 
 // CustomURL stores info about user's URL.
 type CustomURL struct {
-	ID        int64     `bson:"_id"`
-	Disabled  bool      `bson:"off"`
-	Project   string    `bson:"prj"`
-	Tag       string    `bson:"tag"`
-	Original  string    `bson:"orig"`
-	User      string    `bson:"u"`
-	TTL       time.Time `bson:"ttl"`
-	NotDirect bool      `bson:"ndr"`
-	Spam      float64   `bson:"spam"`
-	Created   time.Time `bson:"ts"`
-	Modified  time.Time `bson:"mod"`
-	Cb        CallBack  `bson:"cb"`
+	ID        int64      `bson:"_id"`
+	Disabled  bool       `bson:"off"`
+	Project   string     `bson:"prj"`
+	Tag       string     `bson:"tag"`
+	Original  string     `bson:"orig"`
+	User      string     `bson:"u"`
+	TTL       *time.Time `bson:"ttl"`
+	NotDirect bool       `bson:"ndr"`
+	Spam      float64    `bson:"spam"`
+	Created   time.Time  `bson:"ts"`
+	Modified  time.Time  `bson:"mod"`
+	Cb        CallBack   `bson:"cb"`
 }
 
 // ReqParams is request parameters required for new
@@ -59,7 +59,7 @@ type ReqParams struct {
 	Original  string
 	Tag       string
 	NotDirect bool
-	TTL       time.Time
+	TTL       *time.Time
 	Cb        CallBack
 }
 
