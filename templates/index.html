@@ -1,0 +1,17 @@
+{{define "content"}}
+  {{if .Result}}
+    <h5><a href="{{.Result}}" target="_blank">{{.Result}}</a></h5>
+    <p><a href="/" class="btn btn-success">Add new link</a></p>
+  {{else}}
+    <form role="form" method="POST" action="">
+      <div class="form-group">
+        <input type="url" placeholder="Enter URL" class="form-control input-lg" name="url" required autofocus>
+      </div>
+    </form>
+    {{if .Error}}
+      <div class="alert alert-danger" role="alert">
+       {{.Error}}
+      </div>
+    {{end}}
+  {{end}}
+{{end}}

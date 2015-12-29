@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 
 	"golang.org/x/net/context"
 
@@ -55,10 +56,11 @@ type security struct {
 
 // listener is HTTP server configuration
 type listener struct {
-	Host     string   `json:"host"`
-	Port     uint     `json:"port"`
-	Timeout  int64    `json:"timeout"`
-	Security security `json:"security"`
+	Templates string   `json:"templates"`
+	Host      string   `json:"host"`
+	Port      uint     `json:"port"`
+	Timeout   int64    `json:"timeout"`
+	Security  security `json:"security"`
 }
 
 // projects is projects' settings.
@@ -97,10 +99,12 @@ type MongoCfg struct {
 
 // cache is database connections pool settings
 type cache struct {
-	URLs        int `json:"urls"`
-	Projects    int `json:"projects"`
-	URLsLRU     *lru.Cache
-	ProjectsLRU *lru.Cache
+	URLs         int `json:"urls"`
+	Projects     int `json:"projects"`
+	Templates    int `json:"templates"`
+	URLsLRU      *lru.Cache
+	ProjectsLRU  *lru.Cache
+	TemplatesLRU *lru.Cache
 }
 
 // Logger is common logger structure.
@@ -128,6 +132,23 @@ func (c *Config) Address(url string) string {
 		return fmt.Sprintf("https://%s/%s", c.Domain.Name, url)
 	}
 	return fmt.Sprintf("http://%s/%s", c.Domain.Name, url)
+}
+
+// checkTemplates verifies template path value and updates it if needed.
+func (c *Config) checkTemplates() error {
+	fullpath, err := filepath.Abs(strings.Trim(c.Listener.Templates, " "))
+	if err != nil {
+		return err
+	}
+	fm, err := os.Stat(fullpath)
+	if err != nil {
+		return err
+	}
+	if !fm.Mode().IsDir() {
+		return fmt.Errorf("templates folder is not a directory")
+	}
+	c.Listener.Templates = fullpath
+	return nil
 }
 
 // Validate validates configuration settings.
@@ -162,6 +183,8 @@ func (c *Config) Validate() error {
 		err = errFunc("incorrect or empty value", "projects.maxname")
 	case c.Projects.MaxPack < 1:
 		err = errFunc("incorrect or empty value", "projects.maxpack")
+	case c.checkTemplates() != nil:
+		err = errFunc("invalid template name", "listener.templates")
 	}
 	if err != nil {
 		return err
@@ -169,19 +192,17 @@ func (c *Config) Validate() error {
 	// db connection check is skipped here
 	c.Conn = &Conn{Cfg: &c.Db}
 	// caching enabling
-	if c.Cache.URLs > 0 {
-		ca, err := lru.New(c.Cache.URLs)
-		if err != nil {
-			return err
-		}
-		c.Cache.URLsLRU = ca
+	c.Cache.URLsLRU, err = allocateLRU(c.Cache.URLs)
+	if err != nil {
+		return err
 	}
-	if c.Cache.Projects > 0 {
-		ca, err := lru.New(c.Cache.Projects)
-		if err != nil {
-			return err
-		}
-		c.Cache.ProjectsLRU = ca
+	c.Cache.ProjectsLRU, err = allocateLRU(c.Cache.Projects)
+	if err != nil {
+		return err
+	}
+	c.Cache.TemplatesLRU, err = allocateLRU(c.Cache.Templates)
+	if err != nil {
+		return err
 	}
 	// create logger
 	logger := Logger{
@@ -230,6 +251,32 @@ func NewContext(c *Config) context.Context {
 	return context.WithValue(context.Background(), configKey, c)
 }
 
+// tpl returns absolute templates files paths
+func (c *Config) tpl(tpls ...string) []string {
+	paths := make([]string, len(tpls))
+	for i := range tpls {
+		paths[i] = filepath.Join(c.Listener.Templates, tpls[i])
+	}
+	return paths
+}
+
+// CacheTpl return HTML template from file, but first tries to find it in the LRU cache.
+func (c *Config) CacheTpl(key string, tpls ...string) (*template.Template, error) {
+	t, ok := c.Cache.TemplatesLRU.Get(key)
+	if ok {
+		return t.(*template.Template), nil
+	}
+	templates := c.tpl(tpls...)
+	te, err := template.ParseFiles(templates...)
+	if err != nil {
+		return nil, err
+	}
+	if !c.Debug {
+		c.Cache.TemplatesLRU.Add(key, te)
+	}
+	return te, nil
+}
+
 // FromContext extracts the Config from Context.
 func FromContext(ctx context.Context) (*Config, error) {
 	c, ok := ctx.Value(configKey).(*Config)
@@ -237,4 +284,33 @@ func FromContext(ctx context.Context) (*Config, error) {
 		return nil, errors.New("not found context config")
 	}
 	return c, nil
+}
+
+// allocateLRU allocates LRU storage.
+func allocateLRU(size int) (*lru.Cache, error) {
+	var (
+		err     error
+		storage *lru.Cache
+	)
+	if size < 1 {
+		return nil, errors.New("empty LRU initialization")
+	}
+	storage, err = lru.New(size)
+	if err != nil {
+		return nil, err
+	}
+	return storage, nil
+}
+
+// StaticDir returns a path of static files
+func (c *Config) StaticDir() (string, error) {
+	fullpath := filepath.Join(c.Listener.Templates, "static")
+	fm, err := os.Stat(fullpath)
+	if err != nil {
+		return "", err
+	}
+	if !fm.Mode().IsDir() {
+		return "", fmt.Errorf("not found directory of static files: %v", fullpath)
+	}
+	return fullpath, nil
 }

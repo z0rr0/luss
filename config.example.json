@@ -5,6 +5,7 @@
     "secure": false               //   use HTTPS
   },
   "listener": {
+    "templates": "templates",     // folder of templates
     "host": "",                   // HTTP server host
     "port": 10001,                // HTTP server port
     "timeout": 30,                // HTTP server timeout
@@ -43,6 +44,7 @@
   },
   "cache": {                      // cache settings
     "urls": 8,                    // LRU cache size for short URLs, 0 - disabled
-    "projects": 2                 // projects' cache
+    "projects": 2,                // projects' cache
+    "templates": 1                // templates cache
   }
 }

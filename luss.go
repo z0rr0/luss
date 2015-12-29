@@ -102,10 +102,13 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 		ErrorLog:       cfg.L.Error,
 	}
+	// static files
+	staticDir, _ := cfg.StaticDir()
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/test/t":   Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
-		"/add/link": Handler{F: core.HandlerAdd, Auth: false, API: false, Method: "POST"},
+		"/":       Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
+		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
 		// "/notfoud"
 		// "/error"
 		// "/api/add/"

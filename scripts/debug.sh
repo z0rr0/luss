@@ -33,5 +33,5 @@ $BUILD -v || exit 3
 cp -f $CONFIG $TESTCONFIG
 /bin/sed -i 's/\/\/.*$//g' $TESTCONFIG
 
-cd $LOCALGOPATH
-exec ./bin/luss -config `basename $TESTCONFIG`
+cd $REPO
+exec ${LOCALGOPATH}/bin/luss -config $TESTCONFIG

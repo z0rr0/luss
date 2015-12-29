@@ -71,9 +71,8 @@ func HandlerRedirect(ctx context.Context, short string) (string, error) {
 	return cu.Original, nil
 }
 
-// HandlerAdd creates and returns new short URL.
-// It expects POST request with parameters: {url(string),ttl(uint64),tag(string),nd(bool)}.
-func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+// validateParams checks HTTP parameters.
+func validateParams(r *http.Request) (trim.ReqParams, error) {
 	var (
 		nd     bool
 		tag    string
@@ -81,47 +80,62 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) err
 		rawURL string
 		u      *url.URL
 		ttl    *time.Time
+		p      trim.ReqParams
 	)
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return err
-	}
 	rawURL = r.PostFormValue("url")
 	if rawURL == "" {
-		return errors.New("empty URL request parameter")
+		return p, errors.New("empty URL request parameter")
 	}
 	// it is only to validate url value and escaping
 	u, err = url.ParseRequestURI(rawURL)
 	if err != nil {
-		return err
+		return p, err
 	}
 	tag = r.PostFormValue("tag")
-	if p := r.PostFormValue("ttl"); p != "" {
-		t, err := strconv.ParseUint(p, 10, 64)
+	if v := r.PostFormValue("ttl"); v != "" {
+		t, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
-			return err
+			return p, err
 		}
 		expire := time.Now().Add(time.Duration(t) * time.Hour).UTC()
 		ttl = &expire
 	}
-	if p := r.PostFormValue("nd"); p != "" {
+	if v := r.PostFormValue("nd"); v != "" {
 		nd = true
 	}
-	params := []trim.ReqParams{
-		trim.ReqParams{
-			Original:  u.String(),
-			Tag:       tag,
-			NotDirect: nd,
-			TTL:       ttl,
-		},
+	params := trim.ReqParams{
+		Original:  u.String(),
+		Tag:       tag,
+		NotDirect: nd,
+		TTL:       ttl,
 	}
-	cus, err := trim.Shorten(ctx, params)
+	return params, nil
+}
+
+// HandlerIndex return index web page.
+func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	data := map[string]string{}
+	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return err
 	}
-	if len(cus) < 1 {
-		return errors.New("empty shorten result")
+	tpl, err := c.CacheTpl("base", "base.html", "index.html")
+	if err != nil {
+		return err
 	}
-	fmt.Fprintf(w, "%v", c.Address(cus[0].String()))
-	return nil
+	if r.Method == "POST" {
+		p, err := validateParams(r)
+		if err != nil {
+			c.L.Error.Println(err)
+			data["Error"] = "Invalid data."
+			return tpl.ExecuteTemplate(w, "base", data)
+		}
+		params := []trim.ReqParams{p}
+		cus, err := trim.Shorten(ctx, params)
+		if err != nil {
+			return err
+		}
+		data["Result"] = c.Address(cus[0].String())
+	}
+	return tpl.ExecuteTemplate(w, "base", data)
 }
