@@ -104,10 +104,10 @@ func main() {
 	}
 	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		"/test/t":   Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		"/add/link": Handler{F: core.HandlerAdd, Auth: false, API: false, Method: "POST"},
 		// "/notfoud"
 		// "/error"
-		// "/add/link"
 		// "/api/add/"
 		// "/api/add/json"
 	}
@@ -133,6 +133,7 @@ func main() {
 			}
 			// pre-authentication: quickly check a token value
 			ctx, err := project.CheckToken(ctx, r.PostFormValue("token"))
+			// anonymous request should be allow/deny here
 			if err != nil && (rh.Auth || err != project.ErrAnonymous) {
 				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
 				errResp, code = true, http.StatusUnauthorized
@@ -149,12 +150,7 @@ func main() {
 			ctx = db.NewContext(ctx, s)
 			// authentication
 			ctx, err = project.Authenticate(ctx)
-			switch {
-			case err == nil:
-				cfg.L.Debug.Println("successful authentication")
-			case err == project.ErrAnonymous && !rh.Auth:
-				cfg.L.Debug.Println("allowed anonymous authentication")
-			default:
+			if err != nil {
 				cfg.L.Error.Println(err)
 				errResp, code = true, http.StatusUnauthorized
 				return

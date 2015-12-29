@@ -7,7 +7,7 @@
 ```js
 {
   "_id": 123,                       // short URL and decimal number
-  "active": true,                   // link is active
+  "off": false,                     // link is not active
   "prj": "Project2",                // project's name
   "tag": "tag1",                    // tag (some custom identifier)
   "orig": "origin URL",             // origin URL
@@ -24,8 +24,8 @@
   }
 }
 
-db.urls.ensureIndex({"prj": 1, "active": 1, "u": 1})
-db.urls.ensureIndex({"ttl": 1, "active": 1})
+db.urls.ensureIndex({"prj": 1, "off": 1, "u": 1})
+db.urls.ensureIndex({"ttl": 1, "off": 1})
 ```
 
 **db.ustats** - information about URLs statistics

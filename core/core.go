@@ -6,8 +6,11 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
@@ -19,6 +22,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+var (
+	// teotw (the end of the World) is a default links TTL value to simplify database requests.
+	teotw = time.Date(9999, time.January, 1, 1, 0, 0, 0, time.UTC)
+)
+
 // HandlerTest handles test GET request.
 func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	c, err := conf.FromContext(ctx)
@@ -27,7 +35,6 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 	}
 	coll, err := db.C(ctx, "test")
 	if err != nil {
-		c.L.Error.Println(err)
 		return err
 	}
 	command := r.FormValue("write")
@@ -38,22 +45,18 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 		err = coll.Remove(nil)
 	}
 	if err != nil && err != mgo.ErrNotFound {
-		c.L.Error.Println(err)
 		return err
 	}
 	n, err := coll.Count()
 	if err != nil {
-		c.L.Error.Println(err)
 		return err
 	}
 	u, err := project.ExtractUser(ctx)
 	if err != nil {
-		c.L.Error.Println(err)
 		return err
 	}
 	p, err := project.ExtractProject(ctx)
 	if err != nil {
-		c.L.Error.Println(err)
 		return err
 	}
 	c.L.Debug.Printf("user=%v, project=%v", u, p)
@@ -69,5 +72,63 @@ func HandlerRedirect(ctx context.Context, short string) (string, error) {
 	}
 	// TODO: check direct redirect
 	// TODO: add callback handler call
+	// TODO: add tracker actions
 	return cu.Original, nil
+}
+
+// HandlerAdd creates and returns new short URL.
+// It expects POST request with parameters: {url(string),ttl(uint64),tag(string),nd(bool)}.
+func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	var (
+		nd     bool
+		tag    string
+		err    error
+		rawURL string
+		u      *url.URL
+		ttl    time.Time
+	)
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	rawURL = r.PostFormValue("url")
+	if rawURL == "" {
+		return errors.New("empty URL request parameter")
+	}
+	// it is only to validate url value and escaping
+	u, err = url.ParseRequestURI(rawURL)
+	if err != nil {
+		return err
+	}
+	tag = r.PostFormValue("tag")
+	if p := r.PostFormValue("ttl"); p != "" {
+		t, err := strconv.ParseUint(p, 10, 64)
+		if err != nil {
+			return err
+		}
+		ttl = time.Now().Add(time.Duration(t) * time.Hour).UTC()
+	} else {
+		// sorry, but all data will deactivated after this date.
+		ttl = teotw
+	}
+	if p := r.PostFormValue("nd"); p != "" {
+		nd = true
+	}
+	params := []trim.ReqParams{
+		trim.ReqParams{
+			Original:  u.String(),
+			Tag:       tag,
+			NotDirect: nd,
+			TTL:       ttl,
+		},
+	}
+	cus, err := trim.Shorten(ctx, params)
+	if err != nil {
+		return err
+	}
+	if len(cus) < 1 {
+		return errors.New("empty shorten result")
+	}
+	fmt.Fprintf(w, "%v", c.Address(cus[0].String()))
+	return nil
 }

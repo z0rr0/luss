@@ -14,6 +14,7 @@ import (
 
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
+	"github.com/z0rr0/luss/project"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -39,7 +40,7 @@ type CallBack struct {
 // CustomURL stores info about user's URL.
 type CustomURL struct {
 	ID        int64     `bson:"_id"`
-	Active    bool      `bson:"active"`
+	Disabled  bool      `bson:"off"`
 	Project   string    `bson:"prj"`
 	Tag       string    `bson:"tag"`
 	Original  string    `bson:"orig"`
@@ -50,7 +51,21 @@ type CustomURL struct {
 	Created   time.Time `bson:"ts"`
 	Modified  time.Time `bson:"mod"`
 	Cb        CallBack  `bson:"cb"`
-	Short     string    `bson:",omitempty"`
+}
+
+// ReqParams is request parameters required for new
+// short URL creation.
+type ReqParams struct {
+	Original  string
+	Tag       string
+	NotDirect bool
+	TTL       time.Time
+	Cb        CallBack
+}
+
+// String return short string URL without domain prefix.
+func (c *CustomURL) String() string {
+	return Encode(c.ID)
 }
 
 // getMax returns a max short URLs, so it should be called
@@ -120,6 +135,8 @@ func Decode(x string) (int64, error) {
 }
 
 // Lengthen converts a short link to original one.
+// It uses own database session if it's needed
+// or it gets data from the cache.
 func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
@@ -143,7 +160,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 		return nil, err
 	}
 	cu := &CustomURL{}
-	err = coll.Find(bson.M{"_id": num, "active": true}).One(cu)
+	err = coll.Find(bson.M{"_id": num, "off": false}).One(cu)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +169,65 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 }
 
 // Shorten returns new short link.
-// func Shorten(ctx context.Context, original string) (*CustomURL, error) {
-
-// }
+func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	u, err := project.ExtractUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := project.ExtractProject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// check URLs pack size
+	n := len(params)
+	if n > c.Projects.MaxPack {
+		return nil, fmt.Errorf("too big ReqParams pack size [%v]", n)
+	}
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = db.LockURL(s)
+	if err != nil {
+		return nil, err
+	}
+	defer db.UnlockURL(s)
+	// prepare
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return nil, err
+	}
+	num, err := getMax(coll)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	documents := make([]interface{}, n)
+	cus := make([]*CustomURL, n)
+	for i, param := range params {
+		num++
+		cus[i] = &CustomURL{
+			ID:        num,
+			Project:   p.Name,
+			Tag:       param.Tag,
+			Original:  param.Original,
+			User:      u.Name,
+			TTL:       param.TTL,
+			NotDirect: param.NotDirect,
+			Created:   now,
+			Modified:  now,
+			Cb:        param.Cb,
+		}
+		documents[i] = cus[i]
+	}
+	err = coll.Insert(documents...)
+	if err != nil {
+		c.L.Error.Println(err)
+		return nil, err
+	}
+	return cus, nil
+}

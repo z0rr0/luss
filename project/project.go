@@ -174,8 +174,9 @@ func ExtractTokenKey(ctx context.Context) (string, error) {
 }
 
 // Authenticate checks user's authentication.
-// It doesn't validate user's token value, only identifies anonymous
-// and authenticated requests and writes Project and User to new context.
+// It doesn't validate user's token value doesn't detect anonymous
+// request as error, so it should be detected before.
+// It writes Project and User to new context.
 func Authenticate(ctx context.Context) (context.Context, error) {
 	var u *User
 	t, err := ExtractTokenKey(ctx)
@@ -186,7 +187,7 @@ func Authenticate(ctx context.Context) (context.Context, error) {
 		// it is anonymous request
 		ctx = setProjectContext(ctx, AnonProject)
 		ctx = setUserContext(ctx, AnonUser)
-		return ctx, ErrAnonymous
+		return ctx, nil
 	}
 	c, err := conf.FromContext(ctx)
 	if err != nil {

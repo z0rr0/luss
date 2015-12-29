@@ -23,7 +23,9 @@ import (
 )
 
 const (
-	sessionKey key = 0
+	maxLockAttempts     = 8
+	lockKey             = 1
+	sessionKey      key = 0
 )
 
 var (
@@ -220,39 +222,30 @@ func CheckID(s string) (bson.ObjectId, error) {
 	return bson.ObjectId(d), nil
 }
 
-// // CleanCollection removes all data from db collection.
-// func CleanCollection(c *conf.Config, names ...string) error {
-// 	conn, err := GetConn(c)
-// 	defer ReleaseConn(conn)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, name := range names {
-// 		if err == nil {
-// 			coll := conn.C(name)
-// 			_, err = coll.RemoveAll(nil)
-// 		}
-// 	}
-// 	return err
-// }
+// LockURL locks short URL creation actions.
+// It is useful for distributed usage,
+// database is used for consistency short URLs values.
+func LockURL(s *mgo.Session) error {
+	delay := time.Duration(time.Millisecond)
+	coll := s.DB("").C(Colls["locks"])
+	for i := 0; i < maxLockAttempts; i++ {
+		err := coll.Insert(bson.M{"_id": lockKey})
+		if err == nil {
+			return nil
+		}
+		time.Sleep(delay)
+		delay *= 2
+	}
+	return errors.New("can not lock URLs")
+}
 
-// // LockColls adds a lock recored to name-collection
-// func LockColls(name string, conn *Conn) error {
-// 	delay := time.Duration(time.Millisecond)
-// 	coll := conn.C(Colls["locks"])
-// 	for i := 0; i < maxLockAttempts; i++ {
-// 		_, err := coll.Upsert(bson.M{"_id": name, "locked": false}, bson.M{"_id": name, "locked": true})
-// 		if err == nil {
-// 			return nil
-// 		}
-// 		time.Sleep(delay)
-// 		delay *= 2
-// 	}
-// 	return fmt.Errorf("can't lock/update collection \"%v\" during %v attempts", Colls["locks"], maxLockAttempts)
-// }
-
-// // UnlockColls removes a lock recored from name-collection.
-// func UnlockColls(name string, conn *Conn) error {
-// 	coll := conn.C(Colls["locks"])
-// 	return coll.Update(bson.M{"_id": name}, bson.M{"$set": bson.M{"locked": false}})
-// }
+// UnlockURL unlocks short URLs creation actions.
+func UnlockURL(s *mgo.Session) error {
+	coll := s.DB("").C(Colls["locks"])
+	err := coll.RemoveId(lockKey)
+	if err != nil {
+		Logger.Println(err)
+		return err
+	}
+	return nil
+}
