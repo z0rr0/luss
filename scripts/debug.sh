@@ -5,18 +5,21 @@
 #
 # This script builds a main package and runs it using debug flag
 
-LOCALGOPATH="$GOPATH"
 
-if [[ -n "$WINDIR" ]]; then
-    # replace LOCALGOPATH
-    cd $GOPATH
-    LOCALGOPATH="`pwd`"
-fi
-
+cd $GOPATH
+LOCALGOPATH="`pwd`"
+CFG="luss.json"
+TESTCONFIG="${LOCALGOPATH}/${CFG}"
 REPO="$LOCALGOPATH/src/github.com/z0rr0/luss"
 BUILD="$REPO/scripts/build.sh"
 CONFIG="$REPO/config.example.json"
-TESTCONFIG="$LOCALGOPATH/luss.json"
+
+function cfgname()
+{
+    if [[ -n "$WINDIR" ]]; then
+        TESTCONFIG="`cygpath.exe -w $LOCALGOPATH\\\\$CFG`"
+    fi
+}
 
 if [[ ! -x $BUILD ]]; then
     echo "ERROR: not found build script: $BUILD"
@@ -32,6 +35,9 @@ $BUILD -v || exit 3
 # prepare test config
 cp -f $CONFIG $TESTCONFIG
 /bin/sed -i 's/\/\/.*$//g' $TESTCONFIG
+
+# update TESTCONFIG path only for windows platform
+cfgname
 
 cd $REPO
 exec ${LOCALGOPATH}/bin/luss -config $TESTCONFIG

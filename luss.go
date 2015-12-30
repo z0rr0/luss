@@ -124,7 +124,7 @@ func main() {
 			if errResp {
 				http.Error(w, http.StatusText(code), code)
 			}
-			cfg.L.Info.Printf("%v  %v\t%v", code, time.Since(start), url)
+			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), url)
 		}()
 		ctx, cancel := context.WithCancel(conf.NewContext(cfg))
 		defer cancel()
