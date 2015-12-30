@@ -185,6 +185,12 @@ func (c *Config) Validate() error {
 		err = errFunc("incorrect or empty value", "projects.maxpack")
 	case c.checkTemplates() != nil:
 		err = errFunc("invalid template name", "listener.templates")
+	case c.Cache.Projects < 1:
+		err = errFunc("incorrect or empty value", "cache.projects")
+	case c.Cache.URLs < 1:
+		err = errFunc("incorrect or empty value", "cache.urls")
+	case c.Cache.Templates < 1:
+		err = errFunc("incorrect or empty value", "cache.templates")
 	}
 	if err != nil {
 		return err
