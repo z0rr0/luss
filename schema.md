@@ -41,6 +41,23 @@ db.urls.ensureIndex({"ttl": 1, "off": 1})
 db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 ```
 
+### Tracker
+
+**db.tracker** - tracker collection
+
+```js
+{
+  "_id": ObjectId(),                // item ID
+  "s": "short url",                 // short URL
+  "url": "original url",            // original URL
+  "prj": "project name",            // project's name
+  "tag": "tag1",                    // tag value
+  "ts": ISODate()                   // created date
+}
+
+db.tracker.ensureIndex({"project": 1})
+```
+
 ### Locks
 
 **db.locks** - collection to control common locks

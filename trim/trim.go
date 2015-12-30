@@ -8,7 +8,9 @@ package trim
 
 import (
 	"fmt"
+	"log"
 	"math"
+	"os"
 	"sort"
 	"time"
 
@@ -28,6 +30,8 @@ const (
 var (
 	// basis is a numeral system basis
 	basis = int64(len(Alphabet))
+	// logger is a logger for error messages
+	logger = log.New(os.Stderr, "LOGGER [trim]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // CallBack is callback info.
@@ -230,4 +234,29 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 		return nil, err
 	}
 	return cus, nil
+}
+
+// Tracker saves info about short URL activities.
+func Tracker(cfg *conf.Config, cu *CustomURL) {
+	s, err := db.NewSession(cfg.Conn, true)
+	if err != nil {
+		cfg.L.Error.Println(err)
+		return
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "tracker")
+	if err != nil {
+		cfg.L.Error.Println(err)
+		return
+	}
+	err = coll.Insert(bson.M{
+		"s":   Encode(cu.ID),
+		"url": cu.Original,
+		"prj": cu.Project,
+		"tag": cu.Tag,
+		"ts":  time.Now().UTC(),
+	})
+	if err != nil {
+		cfg.L.Error.Println(err)
+	}
 }

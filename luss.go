@@ -88,6 +88,12 @@ func main() {
 		log.Panic(err)
 	}
 	s.Close()
+	defer cfg.Conn.Close()
+	mainCtx := conf.NewContext(cfg)
+	mainCtx, err = core.RunWorkers(mainCtx)
+	if err != nil {
+		log.Panic(err)
+	}
 	errc := make(chan error)
 	go func() {
 		errc <- interrupt()
@@ -126,7 +132,7 @@ func main() {
 			}
 			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), url)
 		}()
-		ctx, cancel := context.WithCancel(conf.NewContext(cfg))
+		ctx, cancel := context.WithCancel(mainCtx)
 		defer cancel()
 		rh, ok := handlers[url]
 		if ok {

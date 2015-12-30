@@ -22,6 +22,88 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+const (
+	trackerKey    key = 1
+	trackerBuffer     = 8
+)
+
+// key is a context key type.
+type key int
+
+// tracker saves info customer short URL request.
+func tracker(ch <-chan *trim.CustomURL, c *conf.Config) {
+	for cu := range ch {
+		trim.Tracker(c, cu)
+	}
+}
+
+// RunWorkers runs tracker workers.
+func RunWorkers(ctx context.Context) (context.Context, error) {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return ctx, err
+	}
+	ch := make(chan *trim.CustomURL, trackerBuffer)
+	for i := 0; i < c.Projects.Trackers; i++ {
+		go func() {
+			tracker(ch, c)
+		}()
+	}
+	c.L.Info.Printf("run %v trackers", c.Projects.Trackers)
+	ctx = context.WithValue(ctx, trackerKey, ch)
+	return ctx, nil
+}
+
+// TrackerChan extracts tracker channel.
+func TrackerChan(ctx context.Context) (chan *trim.CustomURL, error) {
+	p, ok := ctx.Value(trackerKey).(chan *trim.CustomURL)
+	if !ok {
+		return nil, errors.New("not found context tracker channel")
+	}
+	return p, nil
+}
+
+// validateParams checks HTTP parameters.
+func validateParams(r *http.Request) (trim.ReqParams, error) {
+	var (
+		nd     bool
+		tag    string
+		err    error
+		rawURL string
+		u      *url.URL
+		ttl    *time.Time
+		p      trim.ReqParams
+	)
+	rawURL = r.PostFormValue("url")
+	if rawURL == "" {
+		return p, errors.New("empty URL request parameter")
+	}
+	// it is only to validate url value and escaping
+	u, err = url.ParseRequestURI(rawURL)
+	if err != nil {
+		return p, err
+	}
+	tag = r.PostFormValue("tag")
+	if v := r.PostFormValue("ttl"); v != "" {
+		t, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return p, err
+		}
+		expire := time.Now().Add(time.Duration(t) * time.Hour).UTC()
+		ttl = &expire
+	}
+	if v := r.PostFormValue("nd"); v != "" {
+		nd = true
+	}
+	params := trim.ReqParams{
+		Original:  u.String(),
+		Tag:       tag,
+		NotDirect: nd,
+		TTL:       ttl,
+	}
+	return params, nil
+}
+
 // HandlerTest handles test GET request.
 func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	c, err := conf.FromContext(ctx)
@@ -65,51 +147,16 @@ func HandlerRedirect(ctx context.Context, short string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// tracker
+	ch, err := TrackerChan(ctx)
+	if err != nil {
+		return "", err
+	}
+	ch <- cu
 	// TODO: check direct redirect
 	// TODO: add callback handler call
 	// TODO: add tracker actions
 	return cu.Original, nil
-}
-
-// validateParams checks HTTP parameters.
-func validateParams(r *http.Request) (trim.ReqParams, error) {
-	var (
-		nd     bool
-		tag    string
-		err    error
-		rawURL string
-		u      *url.URL
-		ttl    *time.Time
-		p      trim.ReqParams
-	)
-	rawURL = r.PostFormValue("url")
-	if rawURL == "" {
-		return p, errors.New("empty URL request parameter")
-	}
-	// it is only to validate url value and escaping
-	u, err = url.ParseRequestURI(rawURL)
-	if err != nil {
-		return p, err
-	}
-	tag = r.PostFormValue("tag")
-	if v := r.PostFormValue("ttl"); v != "" {
-		t, err := strconv.ParseUint(v, 10, 64)
-		if err != nil {
-			return p, err
-		}
-		expire := time.Now().Add(time.Duration(t) * time.Hour).UTC()
-		ttl = &expire
-	}
-	if v := r.PostFormValue("nd"); v != "" {
-		nd = true
-	}
-	params := trim.ReqParams{
-		Original:  u.String(),
-		Tag:       tag,
-		NotDirect: nd,
-		TTL:       ttl,
-	}
-	return params, nil
 }
 
 // HandlerIndex return index web page.

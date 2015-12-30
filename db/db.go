@@ -40,6 +40,7 @@ var (
 		"locks":    "locks",
 		"ustats":   "ustats",
 		"projects": "projects",
+		"tracker":  "tracker",
 	}
 )
 

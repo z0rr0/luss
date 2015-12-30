@@ -74,6 +74,7 @@ type projects struct {
 	MaxName   int   `json:"maxname"`
 	Anonymous bool  `json:"anonymous"`
 	MaxPack   int   `json:"maxpack"`
+	Trackers  int   `json:"trackers"`
 }
 
 // MongoCfg is database configuration settings
@@ -126,12 +127,25 @@ type Config struct {
 	L        Logger
 }
 
+// Close closes main database connection.
+func (c *Conn) Close() {
+	c.M.Lock()
+	defer c.M.Unlock()
+	if c.S != nil {
+		c.S.Close()
+	}
+}
+
 // Address returns a full URL address.
 func (c *Config) Address(url string) string {
-	if c.Domain.Secure {
-		return fmt.Sprintf("https://%s/%s", c.Domain.Name, url)
+	domain := c.Domain.Name
+	if c.Debug {
+		domain += fmt.Sprintf(":%v", c.Listener.Port)
 	}
-	return fmt.Sprintf("http://%s/%s", c.Domain.Name, url)
+	if c.Domain.Secure {
+		return fmt.Sprintf("https://%s/%s", domain, url)
+	}
+	return fmt.Sprintf("http://%s/%s", domain, url)
 }
 
 // checkTemplates verifies template path value and updates it if needed.
@@ -183,6 +197,8 @@ func (c *Config) Validate() error {
 		err = errFunc("incorrect or empty value", "projects.maxname")
 	case c.Projects.MaxPack < 1:
 		err = errFunc("incorrect or empty value", "projects.maxpack")
+	case c.Projects.Trackers < 1:
+		err = errFunc("incorrect or empty value", "projects.trackers")
 	case c.checkTemplates() != nil:
 		err = errFunc("invalid template name", "listener.templates")
 	case c.Cache.Projects < 1:
