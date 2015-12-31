@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
@@ -23,17 +24,25 @@ import (
 )
 
 const (
-	trackerKey    key = 1
-	trackerBuffer     = 8
+	// trackerKey is a key to set/get tracker channel from context.
+	trackerKey key = 1
+	// trackerBuffer is a size of tracker channel.
+	trackerBuffer = 32
 )
 
 // key is a context key type.
 type key int
 
+// cuInfo is trim.CustomURL info with context.
+type cuInfo struct {
+	ctx context.Context
+	cu  *trim.CustomURL
+}
+
 // tracker saves info customer short URL request.
-func tracker(ch <-chan *trim.CustomURL, c *conf.Config) {
-	for cu := range ch {
-		trim.Tracker(c, cu)
+func tracker(ch <-chan *cuInfo) {
+	for cui := range ch {
+		trim.Tracker(cui.ctx, cui.cu)
 	}
 }
 
@@ -43,10 +52,10 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return ctx, err
 	}
-	ch := make(chan *trim.CustomURL, trackerBuffer)
+	ch := make(chan *cuInfo)
 	for i := 0; i < c.Projects.Trackers; i++ {
 		go func() {
-			tracker(ch, c)
+			tracker(ch)
 		}()
 	}
 	c.L.Info.Printf("run %v trackers", c.Projects.Trackers)
@@ -55,8 +64,8 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 }
 
 // TrackerChan extracts tracker channel.
-func TrackerChan(ctx context.Context) (chan *trim.CustomURL, error) {
-	p, ok := ctx.Value(trackerKey).(chan *trim.CustomURL)
+func TrackerChan(ctx context.Context) (chan *cuInfo, error) {
+	p, ok := ctx.Value(trackerKey).(chan *cuInfo)
 	if !ok {
 		return nil, errors.New("not found context tracker channel")
 	}
@@ -143,19 +152,38 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 
 // HandlerRedirect searches saved original URL by a short one.
 func HandlerRedirect(ctx context.Context, short string) (string, error) {
+	var wg sync.WaitGroup
 	cu, err := trim.Lengthen(ctx, short)
 	if err != nil {
 		return "", err
 	}
-	// tracker
-	ch, err := TrackerChan(ctx)
+	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return "", err
 	}
-	ch <- cu
-	// TODO: check direct redirect
+	s, err := db.NewSession(c.Conn, true)
+	if err != nil {
+		return "", err
+	}
+	defer s.Close()
+	ctx = db.NewContext(ctx, s)
+	cui := &cuInfo{ctx, cu}
+	wg.Add(1)
+	// tracker
+	go func() {
+		defer wg.Done()
+		ch, err := TrackerChan(ctx)
+		if err != nil {
+			c.L.Error.Println(err)
+			return
+		}
+		ch <- cui
+		fmt.Println("wg done")
+	}()
 	// TODO: add callback handler call
-	// TODO: add tracker actions
+	wg.Wait()
+	fmt.Println("wg wait done")
+	// TODO: check direct redirect
 	return cu.Original, nil
 }
 

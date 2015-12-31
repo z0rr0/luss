@@ -237,16 +237,15 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 }
 
 // Tracker saves info about short URL activities.
-func Tracker(cfg *conf.Config, cu *CustomURL) {
-	s, err := db.NewSession(cfg.Conn, true)
+func Tracker(ctx context.Context, cu *CustomURL) {
+	s, err := db.CtxSession(ctx)
 	if err != nil {
-		cfg.L.Error.Println(err)
+		logger.Println(err)
 		return
 	}
-	defer s.Close()
 	coll, err := db.Coll(s, "tracker")
 	if err != nil {
-		cfg.L.Error.Println(err)
+		logger.Println(err)
 		return
 	}
 	err = coll.Insert(bson.M{
@@ -257,6 +256,6 @@ func Tracker(cfg *conf.Config, cu *CustomURL) {
 		"ts":  time.Now().UTC(),
 	})
 	if err != nil {
-		cfg.L.Error.Println(err)
+		logger.Println(err)
 	}
 }
