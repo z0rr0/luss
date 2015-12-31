@@ -8,8 +8,10 @@ package core
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -30,6 +32,11 @@ const (
 	trackerBuffer = 32
 )
 
+var (
+	// logger is a logger for error messages
+	logger = log.New(os.Stderr, "LOGGER [core]: ", log.Ldate|log.Ltime|log.Lshortfile)
+)
+
 // key is a context key type.
 type key int
 
@@ -41,8 +48,31 @@ type cuInfo struct {
 
 // tracker saves info customer short URL request.
 func tracker(ch <-chan *cuInfo) {
+	var wg sync.WaitGroup
 	for cui := range ch {
-		trim.Tracker(cui.ctx, cui.cu)
+		c, err := conf.FromContext(cui.ctx)
+		if err != nil {
+			logger.Println(err)
+			continue
+		}
+		s, err := db.NewSession(c.Conn, true)
+		if err != nil {
+			logger.Println(err)
+			continue
+		}
+		wg.Add(2)
+		// tracker
+		go func() {
+			defer wg.Done()
+			trim.Tracker(s, cui.cu)
+		}()
+		// callback handler
+		go func() {
+			defer wg.Done()
+			// trim.Callback(s, cui.cu)
+		}()
+		wg.Wait()
+		s.Close()
 	}
 }
 
@@ -52,7 +82,7 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return ctx, err
 	}
-	ch := make(chan *cuInfo)
+	ch := make(chan *cuInfo, trackerBuffer)
 	for i := 0; i < c.Projects.Trackers; i++ {
 		go func() {
 			tracker(ch)
@@ -152,37 +182,17 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 
 // HandlerRedirect searches saved original URL by a short one.
 func HandlerRedirect(ctx context.Context, short string) (string, error) {
-	var wg sync.WaitGroup
 	cu, err := trim.Lengthen(ctx, short)
 	if err != nil {
 		return "", err
 	}
-	c, err := conf.FromContext(ctx)
+	ch, err := TrackerChan(ctx)
 	if err != nil {
-		return "", err
-	}
-	s, err := db.NewSession(c.Conn, true)
-	if err != nil {
-		return "", err
-	}
-	defer s.Close()
-	ctx = db.NewContext(ctx, s)
-	cui := &cuInfo{ctx, cu}
-	wg.Add(1)
-	// tracker
-	go func() {
-		defer wg.Done()
-		ch, err := TrackerChan(ctx)
-		if err != nil {
-			c.L.Error.Println(err)
-			return
-		}
+		logger.Println(err)
+	} else {
+		cui := &cuInfo{ctx, cu}
 		ch <- cui
-		fmt.Println("wg done")
-	}()
-	// TODO: add callback handler call
-	wg.Wait()
-	fmt.Println("wg wait done")
+	}
 	// TODO: check direct redirect
 	return cu.Original, nil
 }
