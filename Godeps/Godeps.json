@@ -1,0 +1,26 @@
+{
+	"ImportPath": "github.com/z0rr0/luss",
+	"GoVersion": "go1.5.2",
+	"Packages": [
+		"github.com/z0rr0/luss"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/hashicorp/golang-lru",
+			"Rev": "b361c4c189a958f7d0ad435952611c140751afe2"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/sha3",
+			"Rev": "e74b0352e547e3830f8471e7ae9609239c52606f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "5d0a0f8cd486626821d2ba44d471ab1c9271d38f"
+		},
+		{
+			"ImportPath": "gopkg.in/mgo.v2",
+			"Comment": "r2015.12.06",
+			"Rev": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49"
+		}
+	]
+}

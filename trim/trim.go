@@ -8,15 +8,13 @@ package trim
 
 import (
 	"fmt"
-	"log"
 	"math"
-	"os"
 	"sort"
 	"time"
 
+	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
-	"github.com/z0rr0/luss/project"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -30,8 +28,6 @@ const (
 var (
 	// basis is a numeral system basis
 	basis = int64(len(Alphabet))
-	// logger is a logger for error messages
-	logger = log.New(os.Stderr, "LOGGER [trim]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // CallBack is callback info.
@@ -45,7 +41,7 @@ type CallBack struct {
 type CustomURL struct {
 	ID        int64      `bson:"_id"`
 	Disabled  bool       `bson:"off"`
-	Project   string     `bson:"prj"`
+	Group     string     `bson:"group"`
 	Tag       string     `bson:"tag"`
 	Original  string     `bson:"orig"`
 	User      string     `bson:"u"`
@@ -62,6 +58,7 @@ type CustomURL struct {
 type ReqParams struct {
 	Original  string
 	Tag       string
+	Group     string
 	NotDirect bool
 	TTL       *time.Time
 	Cb        CallBack
@@ -178,11 +175,7 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, err := project.ExtractUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	p, err := project.ExtractProject(ctx)
+	u, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +209,7 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 		num++
 		cus[i] = &CustomURL{
 			ID:        num,
-			Project:   p.Name,
+			Group:     param.Group,
 			Tag:       param.Tag,
 			Original:  param.Original,
 			User:      u.Name,
@@ -234,23 +227,4 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 		return nil, err
 	}
 	return cus, nil
-}
-
-// Tracker saves info about short URL activities.
-func Tracker(s *mgo.Session, cu *CustomURL) {
-	coll, err := db.Coll(s, "tracker")
-	if err != nil {
-		logger.Println(err)
-		return
-	}
-	err = coll.Insert(bson.M{
-		"s":   Encode(cu.ID),
-		"url": cu.Original,
-		"prj": cu.Project,
-		"tag": cu.Tag,
-		"ts":  time.Now().UTC(),
-	})
-	if err != nil {
-		logger.Println(err)
-	}
 }

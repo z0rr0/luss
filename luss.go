@@ -18,10 +18,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/db"
-	"github.com/z0rr0/luss/project"
 	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
@@ -141,9 +141,9 @@ func main() {
 				return
 			}
 			// pre-authentication: quickly check a token value
-			ctx, err := project.CheckToken(ctx, r.PostFormValue("token"))
+			ctx, err := auth.CheckToken(ctx, r.PostFormValue("token"))
 			// anonymous request should be allow/deny here
-			if err != nil && (rh.Auth || err != project.ErrAnonymous) {
+			if err != nil && (rh.Auth || err != auth.ErrAnonymous) {
 				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
 				errResp, code = true, http.StatusUnauthorized
 				return
@@ -158,7 +158,7 @@ func main() {
 			defer s.Close()
 			ctx = db.NewContext(ctx, s)
 			// authentication
-			ctx, err = project.Authenticate(ctx)
+			ctx, err = auth.Authenticate(ctx)
 			if err != nil {
 				cfg.L.Error.Println(err)
 				errResp, code = true, http.StatusUnauthorized

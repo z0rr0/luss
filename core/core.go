@@ -16,9 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
-	"github.com/z0rr0/luss/project"
+	"github.com/z0rr0/luss/stats"
 	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
@@ -64,7 +65,7 @@ func tracker(ch <-chan *cuInfo) {
 		// tracker
 		go func() {
 			defer wg.Done()
-			trim.Tracker(s, cui.cu)
+			stats.Tracker(s, cui.cu)
 		}()
 		// callback handler
 		go func() {
@@ -167,15 +168,11 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
-	u, err := project.ExtractUser(ctx)
+	u, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return err
 	}
-	p, err := project.ExtractProject(ctx)
-	if err != nil {
-		return err
-	}
-	c.L.Debug.Printf("user=%v, project=%v", u, p)
+	c.L.Debug.Printf("user=%v", u)
 	fmt.Fprintf(w, "found %v items", n)
 	return nil
 }

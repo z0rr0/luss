@@ -30,7 +30,7 @@ func TestNewSession(t *testing.T) {
 	if _, err := CtxSession(ctx); err == nil {
 		t.Fatalf("invalid behavior")
 	}
-	if _, err := C(ctx, "test"); err == nil {
+	if _, err := C(ctx, "tests"); err == nil {
 		t.Fatalf("invalid behavior")
 	}
 	ctx = NewContext(ctx, s)
@@ -40,7 +40,7 @@ func TestNewSession(t *testing.T) {
 	if _, err := C(ctx, "test-bad"); err == nil {
 		t.Fatalf("invalid behavior")
 	}
-	coll, err := C(ctx, "test")
+	coll, err := C(ctx, "tests")
 	if err != nil {
 		t.Error(err)
 	}

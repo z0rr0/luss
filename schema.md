@@ -28,9 +28,9 @@ db.urls.ensureIndex({"group": 1, "off": 1, "u": 1})
 db.urls.ensureIndex({"ttl": 1, "off": 1})
 ```
 
-### Tracker
+### Tracks
 
-**db.trackers** - tracker collection
+**db.tracks** - tracker collection
 
 ```js
 {
@@ -50,7 +50,7 @@ db.urls.ensureIndex({"ttl": 1, "off": 1})
   "ts": ISODate()                   // created date
 }
 
-db.trackers.ensureIndex({"group": 1})
+db.tracks.ensureIndex({"group": 1})
 ```
 
 ### Locks
@@ -78,4 +78,15 @@ db.trackers.ensureIndex({"group": 1})
 }
 
 db.projects.ensureIndex({"token": 1}, {"unique": 1})
+```
+
+### Tests
+
+**db.tests** - collection for test requests.
+
+```js
+{
+  "_id": ObjectId,                  // item identifier
+  "ts": Date()                      // timestamp
+}
 ```

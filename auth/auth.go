@@ -2,8 +2,8 @@
 // Use of this source code is governed by a GPL-style
 // license that can be found in the LICENSE file.
 
-// Package project implements methods to handler projects/users activities.
-package project
+// Package auth implements methods to handler users activities.
+package auth
 
 import (
 	"crypto/rand"
@@ -20,17 +20,14 @@ import (
 
 const (
 	// Anonymous is a name of anonymous users and projects.
-	Anonymous      = "anonymous"
-	userKey    key = 1
-	projectKey key = 2
-	tokenKey   key = 3
+	Anonymous     = "anonymous"
+	userKey   key = 1
+	tokenKey  key = 3
 )
 
 var (
 	// AnonUser is anonymous user.
 	AnonUser = &User{Name: Anonymous}
-	// AnonProject is anonymous project.
-	AnonProject = &Project{Name: Anonymous, Users: []User{*AnonUser}}
 	// ErrAnonymous is error of anonymous authentication
 	ErrAnonymous = errors.New("anonymous request")
 )
@@ -39,29 +36,17 @@ type key int
 
 // User is structure of user's info.
 type User struct {
-	Name   string    `bson:"name"`
-	Key    string    `bson:"key"`
-	Role   string    `bson:"role"`
-	Ts     time.Time `bson:"ts"`
-	Secret string    `bson:",omitempty"`
-}
-
-// Project is structure of project's info.
-type Project struct {
-	ID    bson.ObjectId `bson:"_id"`
-	Name  string        `bson:"name"`
-	Users []User        `bson:"users"`
-	Ts    time.Time     `bson:"ts"`
+	Name     string    `bson:"_id"`
+	Disabled bool      `bson:"off"`
+	Token    string    `bson:"token"`
+	Roles    []string  `bson:"roles"`
+	Modified time.Time `bson:"mt"`
+	Created  time.Time `bson:"ct"`
 }
 
 // String returns user's name
 func (u *User) String() string {
 	return u.Name
-}
-
-// String returns project's name
-func (p *Project) String() string {
-	return p.Name
 }
 
 // genToken generates new user's token and
@@ -137,11 +122,6 @@ func setUserContext(ctx context.Context, u *User) context.Context {
 }
 
 // setUserContext saves Project struct to the Context.
-func setProjectContext(ctx context.Context, p *Project) context.Context {
-	return context.WithValue(ctx, projectKey, p)
-}
-
-// setUserContext saves Project struct to the Context.
 func setTokenContext(ctx context.Context, token string) context.Context {
 	return context.WithValue(ctx, tokenKey, token)
 }
@@ -155,15 +135,6 @@ func ExtractUser(ctx context.Context) (*User, error) {
 	return u, nil
 }
 
-// ExtractProject extracts project from from context.
-func ExtractProject(ctx context.Context) (*Project, error) {
-	p, ok := ctx.Value(projectKey).(*Project)
-	if !ok {
-		return nil, errors.New("not found context project")
-	}
-	return p, nil
-}
-
 // ExtractTokenKey extracts user's  from from context.
 func ExtractTokenKey(ctx context.Context) (string, error) {
 	t, ok := ctx.Value(tokenKey).(string)
@@ -174,49 +145,27 @@ func ExtractTokenKey(ctx context.Context) (string, error) {
 }
 
 // Authenticate checks user's authentication.
-// It doesn't validate user's token value doesn't detect anonymous
-// request as error, so it should be detected before.
-// It writes Project and User to new context.
+// It doesn't validate user's token value and doesn't detect anonymous
+// request as error, so it should be identified before.
+// It writes User to new context.
 func Authenticate(ctx context.Context) (context.Context, error) {
-	var u *User
 	t, err := ExtractTokenKey(ctx)
 	if err != nil {
 		return ctx, err
 	}
 	if t == "" {
 		// it is anonymous request
-		ctx = setProjectContext(ctx, AnonProject)
-		ctx = setUserContext(ctx, AnonUser)
-		return ctx, nil
-	}
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return ctx, err
+		return setUserContext(ctx, AnonUser), nil
 	}
 	// use already opened session from context
-	coll, err := db.C(ctx, "projects")
+	coll, err := db.C(ctx, "users")
 	if err != nil {
-		c.L.Error.Println(err)
 		return ctx, err
 	}
-	p := &Project{}
-	err = coll.Find(bson.M{"users.key": t}).One(p)
+	u := &User{}
+	err = coll.Find(bson.M{"token": t, "off": false}).One(u)
 	if err != nil {
-		c.L.Error.Println(err)
 		return ctx, err
 	}
-	err = errors.New("user not found")
-	for i, user := range p.Users {
-		if user.Key == t {
-			u, err = &p.Users[i], nil
-			break
-		}
-	}
-	if err != nil {
-		c.L.Error.Println(err)
-		return ctx, err
-	}
-	ctx = setProjectContext(ctx, p)
-	ctx = setUserContext(ctx, u)
-	return ctx, nil
+	return setUserContext(ctx, u), nil
 }

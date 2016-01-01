@@ -37,7 +37,6 @@
     "replica": null,              //   replicaset name
     "ssl": false,                 //   use SSL connection
     "sslkeyfile": "",             //   SSL key file
-    "primaryread": true,          //   prefer primary read option
     "reconnects": 3,              //   number of reconnects attempts (min 1)
     "rcntime": 50,                //   delay between reconnects attempts (milliseconds)
     "poollimit": 512,             //   sets the maximum number of sockets in use in a single server

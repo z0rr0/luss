@@ -34,13 +34,11 @@ var (
 	// Colls is a map of db collections names.
 	// Keys can be used as aliases, values are real collection names.
 	Colls = map[string]string{
-		"test":     "test",
-		"users":    "users",
-		"urls":     "urls",
-		"locks":    "locks",
-		"ustats":   "ustats",
-		"projects": "projects",
-		"tracker":  "tracker",
+		"urls":   "urls",
+		"tracks": "tracks",
+		"locks":  "locks",
+		"users":  "users",
+		"tests":  "tests",
 	}
 )
 
@@ -91,9 +89,9 @@ func connect(c *conf.Conn) error {
 		}
 		// old session is not valid
 		// close it and use new one
-		oldS := c.S
+		old := c.S
 		c.S = s
-		oldS.Close()
+		old.Close()
 	}
 	return nil
 }
@@ -112,6 +110,19 @@ func NewSession(c *conf.Conn, primary bool) (*mgo.Session, error) {
 		s.SetMode(mgo.SecondaryPreferred, true)
 	}
 	return s, nil
+}
+
+// NewCtxSession creates new database session and saves it to the context.
+func NewCtxSession(ctx context.Context, c *conf.Config, primary bool) (context.Context, *mgo.Session, error) {
+	if c.Conn == nil {
+		return ctx, nil, errors.New("empty main session")
+	}
+	s, err := NewSession(c.Conn, primary)
+	if err != nil {
+		return ctx, nil, err
+	}
+	ctx = NewContext(ctx, s)
+	return ctx, s, nil
 }
 
 // C return a collection pointer by its name from default database.
@@ -197,11 +208,6 @@ func mongoDBConnection(cfg *conf.MongoCfg) (*mgo.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	mode := mgo.PrimaryPreferred
-	if !cfg.PrimaryRead {
-		mode = mgo.SecondaryPreferred
-	}
-	session.SetMode(mode, true)
 	if cfg.PoolLimit > 1 {
 		session.SetPoolLimit(cfg.PoolLimit)
 	}

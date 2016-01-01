@@ -79,23 +79,22 @@ type projects struct {
 
 // MongoCfg is database configuration settings
 type MongoCfg struct {
-	Hosts       []string `json:"hosts"`
-	Port        uint     `json:"port"`
-	Timeout     uint     `json:"timeout"`
-	Username    string   `json:"username"`
-	Password    string   `json:"password"`
-	Database    string   `json:"database"`
-	AuthDB      string   `json:"authdb"`
-	ReplicaSet  string   `json:"replica"`
-	Ssl         bool     `json:"ssl"`
-	SslKeyFile  string   `json:"sslkeyfile"`
-	PrimaryRead bool     `json:"primaryread"`
-	Reconnects  int      `json:"reconnects"`
-	RcnTime     int64    `json:"rcntime"`
-	PoolLimit   int      `json:"poollimit"`
-	Debug       bool     `json:"debug"`
-	MongoCred   *mgo.DialInfo
-	Logger      *log.Logger
+	Hosts      []string `json:"hosts"`
+	Port       uint     `json:"port"`
+	Timeout    uint     `json:"timeout"`
+	Username   string   `json:"username"`
+	Password   string   `json:"password"`
+	Database   string   `json:"database"`
+	AuthDB     string   `json:"authdb"`
+	ReplicaSet string   `json:"replica"`
+	Ssl        bool     `json:"ssl"`
+	SslKeyFile string   `json:"sslkeyfile"`
+	Reconnects int      `json:"reconnects"`
+	RcnTime    int64    `json:"rcntime"`
+	PoolLimit  int      `json:"poollimit"`
+	Debug      bool     `json:"debug"`
+	MongoCred  *mgo.DialInfo
+	Logger     *log.Logger
 }
 
 // cache is database connections pool settings
