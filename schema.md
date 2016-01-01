@@ -8,7 +8,7 @@
 {
   "_id": 123,                       // short URL and decimal number
   "off": false,                     // link is not active
-  "prj": "Project2",                // project's name
+  "group": "Group1",                // project's name
   "tag": "tag1",                    // tag (some custom identifier)
   "orig": "origin URL",             // origin URL
   "u": "User1",                     // author of this link
@@ -24,38 +24,33 @@
   }
 }
 
-db.urls.ensureIndex({"prj": 1, "off": 1, "u": 1})
+db.urls.ensureIndex({"group": 1, "off": 1, "u": 1})
 db.urls.ensureIndex({"ttl": 1, "off": 1})
-```
-
-**db.ustats** - information about URLs statistics
-
-```js
-{
-  "_id": ObjectId(),                // item ID
-  "url": "short url",               // short URL
-  "tag": "tag",                     // link's tag (some custom identifier)
-  "date": ISODate()                 // date (daily around)
-}
-
-db.ustats.ensureIndex({"url": 1, "day": 1}, {"unique": 1})
 ```
 
 ### Tracker
 
-**db.tracker** - tracker collection
+**db.trackers** - tracker collection
 
 ```js
 {
   "_id": ObjectId(),                // item ID
-  "s": "short url",                 // short URL
+  "short": "short url",             // short URL
   "url": "original url",            // original URL
-  "prj": "project name",            // project's name
+  "group": "group name",            // project's name
   "tag": "tag1",                    // tag value
+  "geo": {                          // geo IP information:
+    "ip": "127.0.0.1",              //   IP address
+    "country": "name",              //   country name
+    "city": "name",                 //   city name
+    "tz": "UTC"                     //   timezone
+    "lat": 51.5142,                 //   latitude
+    "lon": -0.0931                  //   longitude
+  }
   "ts": ISODate()                   // created date
 }
 
-db.tracker.ensureIndex({"project": 1})
+db.trackers.ensureIndex({"group": 1})
 ```
 
 ### Locks
@@ -64,41 +59,23 @@ db.tracker.ensureIndex({"project": 1})
 
 ```js
 {
-  "_id": "urls",                    // locked collection
-  "locked": false,                  // mutex flag
+  "_id": "key",                    // locked key
 }
-
-// test collection is used during test ping.
-db.test.createIndex({"ts": 1 }, {expireAfterSeconds: 60})
 ```
 
-### Projects
+### Users
 
-**db.projects** - information about projects and users.
+**db.users** - information about users.
 
 ```js
 {
-  "_id": ObjectId(),               // record ID
-  "name": "Project1"               // project's name
-  "users": [                       // info about users
-    {
-      "name": "User1",             // user's name
-      "key": "sercrete token",     // secrete token
-      "role": "owner",             // user's role
-      "ts": Date()                 // date of modification
-    },
-    {
-      "name": "User2",
-      "key": "sercrete token",
-      "role": "writer",
-      "ts": Date()
-    },
-  ],
-  "tags": ["tag1", "tag1"],        // custom project's tags
-  "modified": ISODate(),           // date of modification
+  "_id": "name",                    // user's name (max 255)
+  "off": false,                     // use is deactivated
+  "token": "secrete token",         // secrete token
+  "roles": ["root"],                // user's roles
+  "ct": Date(),                     // created
+  "mt": Date()                      // modified
 }
 
-db.projects.ensureIndex({"name": 1}, {"unique": 1})
-db.projects.ensureIndex({"users.key": 1}, {"unique": 1})
-db.projects.ensureIndex({"users.name": 1})
+db.projects.ensureIndex({"token": 1}, {"unique": 1})
 ```
