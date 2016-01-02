@@ -68,54 +68,54 @@ func TestParseConfig(t *testing.T) {
 	}
 	cfg.Listener.Security.Salt = oldSecuritySalt
 
-	oldMaxSpam := cfg.Projects.MaxSpam
-	cfg.Projects.MaxSpam = 0
+	oldMaxSpam := cfg.Settings.MaxSpam
+	cfg.Settings.MaxSpam = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.MaxSpam = oldMaxSpam
+	cfg.Settings.MaxSpam = oldMaxSpam
 
-	oldCleanMin := cfg.Projects.CleanMin
-	cfg.Projects.CleanMin = 0
+	oldCleanMin := cfg.Settings.CleanMin
+	cfg.Settings.CleanMin = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.CleanMin = oldCleanMin
+	cfg.Settings.CleanMin = oldCleanMin
 
-	oldCbNum := cfg.Projects.CbNum
-	cfg.Projects.CbNum = 0
+	oldCbNum := cfg.Settings.CbNum
+	cfg.Settings.CbNum = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.CbNum = oldCbNum
+	cfg.Settings.CbNum = oldCbNum
 
-	oldCbBuf := cfg.Projects.CbBuf
-	cfg.Projects.CbBuf = 0
+	oldCbBuf := cfg.Settings.CbBuf
+	cfg.Settings.CbBuf = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.CbBuf = oldCbBuf
+	cfg.Settings.CbBuf = oldCbBuf
 
-	oldCbLength := cfg.Projects.CbLength
-	cfg.Projects.CbLength = 0
+	oldCbLength := cfg.Settings.CbLength
+	cfg.Settings.CbLength = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.CbLength = oldCbLength
+	cfg.Settings.CbLength = oldCbLength
 
-	oldMaxName := cfg.Projects.MaxName
-	cfg.Projects.MaxName = 0
+	oldMaxName := cfg.Settings.MaxName
+	cfg.Settings.MaxName = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.MaxName = oldMaxName
+	cfg.Settings.MaxName = oldMaxName
 
-	oldMaxPack := cfg.Projects.MaxPack
-	cfg.Projects.MaxPack = 0
+	oldMaxPack := cfg.Settings.MaxPack
+	cfg.Settings.MaxPack = 0
 	if err := cfg.Validate(); err == nil {
 		t.Errorf("incorrect behavior")
 	}
-	cfg.Projects.MaxPack = oldMaxPack
+	cfg.Settings.MaxPack = oldMaxPack
 
 	cfg, err = Parse(name)
 	if err != nil {

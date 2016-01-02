@@ -8,12 +8,14 @@ package stats
 
 import (
 	"log"
+	"net"
 	"os"
 	"time"
 
+	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/trim"
-	"gopkg.in/mgo.v2"
+	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -44,21 +46,39 @@ type Track struct {
 }
 
 // Tracker saves info about short URL activities.
-func Tracker(s *mgo.Session, cu *trim.CustomURL) {
-	coll, err := db.Coll(s, "tracker")
+func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
+	c, err := conf.FromContext(ctx)
 	if err != nil {
 		logger.Println(err)
-		return
+		return err
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		logger.Println(err)
+		return err
+	}
+	c.L.Debug.Printf("remote host=%v, port=%v", host, port)
+	s, err := db.NewSession(c.Conn, true)
+	if err != nil {
+		logger.Println(err)
+		return err
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "tracks")
+	if err != nil {
+		logger.Println(err)
+		return err
 	}
 	err = coll.Insert(bson.M{
 		"short": trim.Encode(cu.ID),
 		"url":   cu.Original,
 		"group": cu.Group,
 		"tag":   cu.Tag,
-		"geo":   GeoData{},
+		"geo":   GeoData{IP: host},
 		"ts":    time.Now().UTC(),
 	})
 	if err != nil {
 		logger.Println(err)
 	}
+	return err
 }

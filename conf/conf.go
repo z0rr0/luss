@@ -63,8 +63,8 @@ type listener struct {
 	Security  security `json:"security"`
 }
 
-// projects is projects' settings.
-type projects struct {
+// settings is a struct for different settings.
+type settings struct {
 	MaxSpam   int   `json:"maxspam"`
 	CleanMin  int64 `json:"cleanup"`
 	CbAllow   bool  `json:"cballow"`
@@ -99,12 +99,9 @@ type MongoCfg struct {
 
 // cache is database connections pool settings
 type cache struct {
-	URLs         int `json:"urls"`
-	Projects     int `json:"projects"`
-	Templates    int `json:"templates"`
-	URLsLRU      *lru.Cache
-	ProjectsLRU  *lru.Cache
-	TemplatesLRU *lru.Cache
+	URLs      int `json:"urls"`
+	Templates int `json:"templates"`
+	Strorage  map[string]*lru.Cache
 }
 
 // Logger is common logger structure.
@@ -118,7 +115,7 @@ type Logger struct {
 type Config struct {
 	Domain   domain   `json:"domain"`
 	Listener listener `json:"listener"`
-	Projects projects `json:"projects"`
+	Settings settings `json:"settings"`
 	Db       MongoCfg `json:"database"`
 	Cache    cache    `json:"cache"`
 	Debug    bool     `json:"debug"`
@@ -182,30 +179,28 @@ func (c *Config) Validate() error {
 		err = errFunc("incorrect or empty value", "listener.security.tokenlen")
 	case len(c.Listener.Security.Salt) < saltLent:
 		err = errFunc(fmt.Sprintf("insecure salt value, min length is %v symbols", saltLent), "listener.security.salt")
-	case c.Projects.MaxSpam < 1:
+	case c.Settings.MaxSpam < 1:
 		err = errFunc("incorrect or empty value", "projects.maxspam")
-	case c.Projects.CleanMin < 1:
+	case c.Settings.CleanMin < 1:
 		err = errFunc("incorrect or empty value", "projects.cleanup")
-	case c.Projects.CbNum < 1:
+	case c.Settings.CbNum < 1:
 		err = errFunc("incorrect or empty value", "projects.cbnum")
-	case c.Projects.CbBuf < 1:
+	case c.Settings.CbBuf < 1:
 		err = errFunc("incorrect or empty value", "projects.cbbuf")
-	case c.Projects.CbLength < 1:
+	case c.Settings.CbLength < 1:
 		err = errFunc("incorrect or empty value", "projects.cblength")
-	case c.Projects.MaxName < 1:
+	case c.Settings.MaxName < 1:
 		err = errFunc("incorrect or empty value", "projects.maxname")
-	case c.Projects.MaxPack < 1:
+	case c.Settings.MaxPack < 1:
 		err = errFunc("incorrect or empty value", "projects.maxpack")
-	case c.Projects.Trackers < 1:
+	case c.Settings.Trackers < 1:
 		err = errFunc("incorrect or empty value", "projects.trackers")
 	case c.checkTemplates() != nil:
 		err = errFunc("invalid template name", "listener.templates")
-	case c.Cache.Projects < 1:
-		err = errFunc("incorrect or empty value", "cache.projects")
-	case c.Cache.URLs < 1:
-		err = errFunc("incorrect or empty value", "cache.urls")
-	case c.Cache.Templates < 1:
-		err = errFunc("incorrect or empty value", "cache.templates")
+	case c.Cache.URLs < 0:
+		err = errFunc("incorrect value", "cache.urls")
+	case c.Cache.Templates < 0:
+		err = errFunc("incorrect value", "cache.templates")
 	}
 	if err != nil {
 		return err
@@ -213,15 +208,7 @@ func (c *Config) Validate() error {
 	// db connection check is skipped here
 	c.Conn = &Conn{Cfg: &c.Db}
 	// caching enabling
-	c.Cache.URLsLRU, err = allocateLRU(c.Cache.URLs)
-	if err != nil {
-		return err
-	}
-	c.Cache.ProjectsLRU, err = allocateLRU(c.Cache.Projects)
-	if err != nil {
-		return err
-	}
-	c.Cache.TemplatesLRU, err = allocateLRU(c.Cache.Templates)
+	err = c.allocateLRU()
 	if err != nil {
 		return err
 	}
@@ -235,6 +222,72 @@ func (c *Config) Validate() error {
 		logger.Debug = log.New(os.Stdout, "DEBUG [luss]: ", log.Ldate|log.Ltime|log.Lshortfile)
 	}
 	c.L = logger
+	return nil
+}
+
+// NewContext returns a new Context carrying Config.
+func NewContext(c *Config) context.Context {
+	return context.WithValue(context.Background(), configKey, c)
+}
+
+// tpl returns absolute templates files paths
+func (c *Config) tpl(tpls ...string) []string {
+	paths := make([]string, len(tpls))
+	for i := range tpls {
+		paths[i] = filepath.Join(c.Listener.Templates, tpls[i])
+	}
+	return paths
+}
+
+// CacheTpl return HTML template from file, but first tries to find it in the LRU cache.
+func (c *Config) CacheTpl(key string, tpls ...string) (*template.Template, error) {
+	cache, cacheOn := c.Cache.Strorage["Tpl"]
+	if cacheOn {
+		if t, ok := cache.Get(key); ok {
+			return t.(*template.Template), nil
+		}
+	}
+	templates := c.tpl(tpls...)
+	te, err := template.ParseFiles(templates...)
+	if err != nil {
+		return nil, err
+	}
+	if cacheOn {
+		cache.Add(key, te)
+	}
+	return te, nil
+}
+
+// StaticDir returns a path of static files
+func (c *Config) StaticDir() (string, error) {
+	fullpath := filepath.Join(c.Listener.Templates, "static")
+	fm, err := os.Stat(fullpath)
+	if err != nil {
+		return "", err
+	}
+	if !fm.Mode().IsDir() {
+		return "", fmt.Errorf("not found directory of static files: %v", fullpath)
+	}
+	return fullpath, nil
+}
+
+// allocateLRU allocated LRU cache if it was activated.
+func (c *Config) allocateLRU() error {
+	c.Cache.Strorage = make(map[string]*lru.Cache)
+	if size := c.Cache.Templates; size > 0 {
+		storage, err := lru.New(size)
+		if err != nil {
+			return err
+		}
+		c.Cache.Strorage["Tpl"] = storage
+	}
+	if size := c.Cache.URLs; size > 0 {
+		storage, err := lru.New(size)
+		if err != nil {
+			return err
+		}
+		c.Cache.Strorage["URL"] = storage
+	}
 	return nil
 }
 
@@ -267,37 +320,6 @@ func Parse(name string) (*Config, error) {
 	return cfg, err
 }
 
-// NewContext returns a new Context carrying Config.
-func NewContext(c *Config) context.Context {
-	return context.WithValue(context.Background(), configKey, c)
-}
-
-// tpl returns absolute templates files paths
-func (c *Config) tpl(tpls ...string) []string {
-	paths := make([]string, len(tpls))
-	for i := range tpls {
-		paths[i] = filepath.Join(c.Listener.Templates, tpls[i])
-	}
-	return paths
-}
-
-// CacheTpl return HTML template from file, but first tries to find it in the LRU cache.
-func (c *Config) CacheTpl(key string, tpls ...string) (*template.Template, error) {
-	t, ok := c.Cache.TemplatesLRU.Get(key)
-	if ok {
-		return t.(*template.Template), nil
-	}
-	templates := c.tpl(tpls...)
-	te, err := template.ParseFiles(templates...)
-	if err != nil {
-		return nil, err
-	}
-	if !c.Debug {
-		c.Cache.TemplatesLRU.Add(key, te)
-	}
-	return te, nil
-}
-
 // FromContext extracts the Config from Context.
 func FromContext(ctx context.Context) (*Config, error) {
 	c, ok := ctx.Value(configKey).(*Config)
@@ -305,33 +327,4 @@ func FromContext(ctx context.Context) (*Config, error) {
 		return nil, errors.New("not found context config")
 	}
 	return c, nil
-}
-
-// allocateLRU allocates LRU storage.
-func allocateLRU(size int) (*lru.Cache, error) {
-	var (
-		err     error
-		storage *lru.Cache
-	)
-	if size < 1 {
-		return nil, errors.New("empty LRU initialization")
-	}
-	storage, err = lru.New(size)
-	if err != nil {
-		return nil, err
-	}
-	return storage, nil
-}
-
-// StaticDir returns a path of static files
-func (c *Config) StaticDir() (string, error) {
-	fullpath := filepath.Join(c.Listener.Templates, "static")
-	fm, err := os.Stat(fullpath)
-	if err != nil {
-		return "", err
-	}
-	if !fm.Mode().IsDir() {
-		return "", fmt.Errorf("not found directory of static files: %v", fullpath)
-	}
-	return fullpath, nil
 }

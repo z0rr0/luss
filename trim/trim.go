@@ -143,9 +143,12 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	cache := c.Cache.URLsLRU
-	if cu, ok := cache.Get(short); ok {
-		return cu.(*CustomURL), nil
+	cache, cacheOn := c.Cache.Strorage["Tpl"]
+	if cacheOn {
+		if cu, ok := cache.Get(short); ok {
+			c.L.Debug.Println("read from LRU cache", short)
+			return cu.(*CustomURL), nil
+		}
 	}
 	num, err := Decode(short)
 	if err != nil {
@@ -165,7 +168,9 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	cache.Add(short, cu)
+	if cacheOn {
+		cache.Add(short, cu)
+	}
 	return cu, nil
 }
 
@@ -181,7 +186,7 @@ func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
 	}
 	// check URLs pack size
 	n := len(params)
-	if n > c.Projects.MaxPack {
+	if n > c.Settings.MaxPack {
 		return nil, fmt.Errorf("too big ReqParams pack size [%v]", n)
 	}
 	s, err := db.CtxSession(ctx)

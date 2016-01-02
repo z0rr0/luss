@@ -176,7 +176,7 @@ func main() {
 				errResp, code = true, http.StatusMethodNotAllowed
 				return
 			}
-			link, err := core.HandlerRedirect(ctx, strings.TrimLeft(url, "/"))
+			link, err := core.HandlerRedirect(ctx, strings.TrimLeft(url, "/"), r)
 			switch {
 			case err == nil:
 				code = http.StatusFound

@@ -43,29 +43,20 @@ type key int
 
 // cuInfo is trim.CustomURL info with context.
 type cuInfo struct {
-	ctx context.Context
-	cu  *trim.CustomURL
+	ctx  context.Context
+	cu   *trim.CustomURL
+	addr string
 }
 
 // tracker saves info customer short URL request.
 func tracker(ch <-chan *cuInfo) {
 	var wg sync.WaitGroup
 	for cui := range ch {
-		c, err := conf.FromContext(cui.ctx)
-		if err != nil {
-			logger.Println(err)
-			continue
-		}
-		s, err := db.NewSession(c.Conn, true)
-		if err != nil {
-			logger.Println(err)
-			continue
-		}
 		wg.Add(2)
 		// tracker
 		go func() {
 			defer wg.Done()
-			stats.Tracker(s, cui.cu)
+			stats.Tracker(cui.ctx, cui.cu, cui.addr)
 		}()
 		// callback handler
 		go func() {
@@ -73,7 +64,6 @@ func tracker(ch <-chan *cuInfo) {
 			// trim.Callback(s, cui.cu)
 		}()
 		wg.Wait()
-		s.Close()
 	}
 }
 
@@ -84,14 +74,13 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 		return ctx, err
 	}
 	ch := make(chan *cuInfo, trackerBuffer)
-	for i := 0; i < c.Projects.Trackers; i++ {
+	for i := 0; i < c.Settings.Trackers; i++ {
 		go func() {
 			tracker(ch)
 		}()
 	}
-	c.L.Info.Printf("run %v trackers", c.Projects.Trackers)
-	ctx = context.WithValue(ctx, trackerKey, ch)
-	return ctx, nil
+	c.L.Info.Printf("run %v trackers", c.Settings.Trackers)
+	return context.WithValue(ctx, trackerKey, ch), nil
 }
 
 // TrackerChan extracts tracker channel.
@@ -150,7 +139,7 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
-	coll, err := db.C(ctx, "test")
+	coll, err := db.C(ctx, "tests")
 	if err != nil {
 		return err
 	}
@@ -178,7 +167,7 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 }
 
 // HandlerRedirect searches saved original URL by a short one.
-func HandlerRedirect(ctx context.Context, short string) (string, error) {
+func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string, error) {
 	cu, err := trim.Lengthen(ctx, short)
 	if err != nil {
 		return "", err
@@ -187,7 +176,7 @@ func HandlerRedirect(ctx context.Context, short string) (string, error) {
 	if err != nil {
 		logger.Println(err)
 	} else {
-		cui := &cuInfo{ctx, cu}
+		cui := &cuInfo{ctx, cu, r.RemoteAddr}
 		ch <- cui
 	}
 	// TODO: check direct redirect

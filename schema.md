@@ -50,7 +50,7 @@ db.urls.ensureIndex({"ttl": 1, "off": 1})
   "ts": ISODate()                   // created date
 }
 
-db.tracks.ensureIndex({"group": 1})
+db.tracks.ensureIndex({"group": 1, "ts": 1})
 ```
 
 ### Locks
@@ -77,7 +77,7 @@ db.tracks.ensureIndex({"group": 1})
   "mt": Date()                      // modified
 }
 
-db.projects.ensureIndex({"token": 1}, {"unique": 1})
+db.users.ensureIndex({"token": 1}, {"unique": 1})
 ```
 
 ### Tests
