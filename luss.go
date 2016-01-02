@@ -88,7 +88,7 @@ func main() {
 		log.Panic(err)
 	}
 	s.Close()
-	defer cfg.Conn.Close()
+	defer cfg.Close()
 	mainCtx := conf.NewContext(cfg)
 	mainCtx, err = core.RunWorkers(mainCtx)
 	if err != nil {

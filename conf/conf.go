@@ -18,9 +18,9 @@ import (
 	"sync"
 	"text/template"
 
-	"golang.org/x/net/context"
-
 	"github.com/hashicorp/golang-lru"
+	"github.com/oschwald/geoip2-golang"
+	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 )
 
@@ -65,16 +65,17 @@ type listener struct {
 
 // settings is a struct for different settings.
 type settings struct {
-	MaxSpam   int   `json:"maxspam"`
-	CleanMin  int64 `json:"cleanup"`
-	CbAllow   bool  `json:"cballow"`
-	CbNum     int   `json:"cbnum"`
-	CbBuf     int   `json:"cbbuf"`
-	CbLength  int   `json:"cblength"`
-	MaxName   int   `json:"maxname"`
-	Anonymous bool  `json:"anonymous"`
-	MaxPack   int   `json:"maxpack"`
-	Trackers  int   `json:"trackers"`
+	MaxSpam   int    `json:"maxspam"`
+	CleanMin  int64  `json:"cleanup"`
+	CbAllow   bool   `json:"cballow"`
+	CbNum     int    `json:"cbnum"`
+	CbBuf     int    `json:"cbbuf"`
+	CbLength  int    `json:"cblength"`
+	MaxName   int    `json:"maxname"`
+	Anonymous bool   `json:"anonymous"`
+	MaxPack   int    `json:"maxpack"`
+	Trackers  int    `json:"trackers"`
+	GeoIPDB   string `json:"geoipdb"`
 }
 
 // MongoCfg is database configuration settings
@@ -120,6 +121,7 @@ type Config struct {
 	Cache    cache    `json:"cache"`
 	Debug    bool     `json:"debug"`
 	Conn     *Conn
+	GeoDB    *geoip2.Reader
 	L        Logger
 }
 
@@ -130,6 +132,12 @@ func (c *Conn) Close() {
 	if c.S != nil {
 		c.S.Close()
 	}
+}
+
+// Close releases configuration resources.
+func (c *Config) Close() {
+	c.Conn.Close()
+	c.GeoDB.Close()
 }
 
 // Address returns a full URL address.
@@ -158,6 +166,20 @@ func (c *Config) checkTemplates() error {
 		return fmt.Errorf("templates folder is not a directory")
 	}
 	c.Listener.Templates = fullpath
+	return nil
+}
+
+// checkGeoIPDB validates Geo IP database file path.
+func (c *Config) checkGeoIPDB() error {
+	fullpath, err := filepath.Abs(c.Settings.GeoIPDB)
+	if err != nil {
+		return err
+	}
+	db, err := geoip2.Open(fullpath)
+	if err != nil {
+		return err
+	}
+	c.GeoDB = db
 	return nil
 }
 
@@ -209,6 +231,11 @@ func (c *Config) Validate() error {
 	c.Conn = &Conn{Cfg: &c.Db}
 	// caching enabling
 	err = c.allocateLRU()
+	if err != nil {
+		return err
+	}
+	// geo ip
+	err = c.checkGeoIPDB()
 	if err != nil {
 		return err
 	}

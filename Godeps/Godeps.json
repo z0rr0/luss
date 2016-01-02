@@ -10,6 +10,16 @@
 			"Rev": "b361c4c189a958f7d0ad435952611c140751afe2"
 		},
 		{
+			"ImportPath": "github.com/oschwald/geoip2-golang",
+			"Comment": "v0.1.0-23-gbf3c252",
+			"Rev": "bf3c2529e7f0619767568752f5155dd9c5125426"
+		},
+		{
+			"ImportPath": "github.com/oschwald/maxminddb-golang",
+			"Comment": "v0.2.0-36-gb4a9635",
+			"Rev": "b4a963502ba01ab44940ee21d5539bd65c726924"
+		},
+		{
 			"ImportPath": "golang.org/x/crypto/sha3",
 			"Rev": "e74b0352e547e3830f8471e7ae9609239c52606f"
 		},
