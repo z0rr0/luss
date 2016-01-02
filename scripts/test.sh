@@ -22,13 +22,14 @@ REPO="$LOCALGOPATH/src/$PACKAGE"
 CONFIG="$REPO/config.example.json"
 TESTCONFIG="$LOCALGOPATH/luss.json"
 BUILD="$REPO/scripts/build.sh"
+ONLYTEST=""
 
 PACKAGES_TEST=( \
 "test" \
 "conf" \
 "db" \
 "trim" \
-"project" \
+"auth" \
 )
 
 PACKAGES_CHECK=( \
@@ -36,7 +37,7 @@ PACKAGES_CHECK=( \
 "conf" \
 "db" \
 "trim" \
-"project" \
+"auth" \
 )
 
 if [ -z "$GOPATH" ]; then
@@ -48,13 +49,16 @@ if [ ! -x "$GOBIN" ]; then
     exit 2
 fi
 
-while getopts ":rb" opt; do
+while getopts ":rbt" opt; do
     case $opt in
         r)
             REVIEW="yes"
             ;;
         b)
             BENCH="-bench=. -benchmem"
+            ;;
+        t)
+            ONLYTEST="yes"
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -64,34 +68,38 @@ done
 
 $BUILD -v || exit 3
 
+cd $REPO
 # prepare test config
 cp -f $CONFIG $TESTCONFIG
 /bin/sed -i 's/\/\/.*$//g' $TESTCONFIG
+/bin/sed -i "s|templates\",|${REPO}/templates\",|g" $TESTCONFIG
 
-cd $REPO
-echo "Run go vet"
-echo "go-vet - $PACKAGE" && $GOBIN vet $PACKAGE
-for p in ${PACKAGES_CHECK[@]}; do
-    echo "go-vet - $PACKAGE/$p"
-    $GOBIN vet $PACKAGE/$p
-done
-
-GOLINT=`which golint`
-if [[ -x "$GOLINT" ]]; then
-    echo "Run golint"
-    echo "go-lint - $PACKAGE" && $GOLINT $PACKAGE
+if [[ -z $ONLYTEST ]]; then
+    echo "Run go vet"
+    echo "go-vet - $PACKAGE" && $GOBIN vet $PACKAGE
     for p in ${PACKAGES_CHECK[@]}; do
-        echo "go-lint - $PACKAGE/$p"
-        $GOLINT $PACKAGE/$p
+        echo "go-vet - $PACKAGE/$p"
+        $GOBIN vet $PACKAGE/$p
     done
-else
-    echo "WARNING: golint is not found"
+
+    GOLINT=`which golint`
+    if [[ -x "$GOLINT" ]]; then
+        echo "Run golint"
+        echo "go-lint - $PACKAGE" && $GOLINT $PACKAGE
+        for p in ${PACKAGES_CHECK[@]}; do
+            echo "go-lint - $PACKAGE/$p"
+            $GOLINT $PACKAGE/$p
+        done
+    else
+        echo "WARNING: golint is not found"
+    fi
+
+    if [[ -n "$REVIEW" ]]; then
+        echo "INFO: tests running was ignored"
+        exit 0
+    fi
 fi
 
-if [[ -n "$REVIEW" ]]; then
-    echo "INFO: tests running was ignored"
-    exit 0
-fi
 
 for p in ${PACKAGES_TEST[@]}; do
     # run tests

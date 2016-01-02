@@ -122,7 +122,7 @@ func TestParseConfig(t *testing.T) {
 		t.Fatal("incorrect behavior")
 	}
 	if err := cfg.Validate(); err != nil {
-		t.Errorf("incorrect behavior")
+		t.Errorf("incorrect behavior: %v", err)
 	}
 }
 
