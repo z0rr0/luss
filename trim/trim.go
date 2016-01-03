@@ -7,8 +7,12 @@
 package trim
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"math"
+	"net/http"
+	"net/url"
 	"sort"
 	"time"
 
@@ -28,6 +32,8 @@ const (
 var (
 	// basis is a numeral system basis
 	basis = int64(len(Alphabet))
+	// ErrEmptyCallback is error about empty empty callback usage.
+	ErrEmptyCallback = errors.New("empty callback request")
 )
 
 // CallBack is callback info.
@@ -65,9 +71,32 @@ type ReqParams struct {
 	Cb        CallBack
 }
 
-// String return short string URL without domain prefix.
-func (c *CustomURL) String() string {
-	return Encode(c.ID)
+// String returns short string URL without domain prefix.
+func (cu *CustomURL) String() string {
+	return Encode(cu.ID)
+}
+
+// Callback returns a prepared body request Reader as bytes.Buffer pointer.
+func (cu *CustomURL) Callback() (*http.Request, error) {
+	if cu.Cb.URL == "" {
+		return nil, ErrEmptyCallback
+	}
+	if cu.Cb.Method != "GET" && cu.Cb.Method != "POST" {
+		return nil, errors.New("unknown callback method")
+	}
+	params := url.Values{}
+	if cu.Cb.Name != "" {
+		params.Add(cu.Cb.Name, cu.Cb.Value)
+	}
+	params.Add("id", cu.String())
+	params.Add("tag", cu.Tag)
+	body := bytes.NewBufferString(params.Encode())
+	return http.NewRequest(cu.Cb.Method, cu.Cb.URL, body)
+}
+
+// String returns main callback info.
+func (cb *CallBack) String() string {
+	return fmt.Sprintf("%v:%v", cb.Method, cb.URL)
 }
 
 // getMax returns a max short URLs, so it should be called

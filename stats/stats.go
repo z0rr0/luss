@@ -10,13 +10,10 @@
 package stats
 
 import (
-	"bytes"
-	"errors"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -25,6 +22,10 @@ import (
 	"github.com/z0rr0/luss/trim"
 	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2/bson"
+)
+
+const (
+	httpUserAgent = "luss/0.1"
 )
 
 var (
@@ -56,23 +57,15 @@ type Track struct {
 // Callback is a callback handler.
 // It does HTTP request if it's needed.
 func Callback(ctx context.Context, cu *trim.CustomURL) error {
-	if cu.Cb.URL == "" {
-		// empty callback
-		return nil
-	}
-	if cu.Cb.Method != "GET" && cu.Cb.Method != "POST" {
-		return errors.New("unknown callback method")
-	}
-	params := url.Values{}
-	params.Add(cu.Cb.Name, cu.Cb.Value)
-	params.Add("tag", cu.Tag)
-	params.Add("id", trim.Encode(cu.ID))
-	body := bytes.NewBufferString(params.Encode())
-	req, err := http.NewRequest(cu.Cb.Method, cu.Cb.URL, body)
+	req, err := cu.Callback()
 	if err != nil {
+		// empty callback
+		if err == trim.ErrEmptyCallback {
+			return nil
+		}
 		return err
 	}
-	req.Header = http.Header{"User-Agent": {"luss/0.1"}}
+	req.Header = http.Header{"User-Agent": {httpUserAgent}}
 	timeoutTLS, timeout := 5*time.Second, 7*time.Second
 	tr := &http.Transport{
 		Proxy:               http.ProxyFromEnvironment,
@@ -91,6 +84,8 @@ func Callback(ctx context.Context, cu *trim.CustomURL) error {
 }
 
 // Tracker saves info about short URL activities.
+// GeoIP database can be loaded from
+// http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz
 func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
@@ -122,7 +117,7 @@ func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 		return err
 	}
 	err = coll.Insert(bson.M{
-		"short": trim.Encode(cu.ID),
+		"short": cu.String(),
 		"url":   cu.Original,
 		"group": cu.Group,
 		"tag":   cu.Tag,

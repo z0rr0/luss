@@ -14,11 +14,22 @@ REPO="$LOCALGOPATH/src/github.com/z0rr0/luss"
 BUILD="$REPO/scripts/build.sh"
 CONFIG="$REPO/config.example.json"
 
+GEOWEB="http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz"
+GEODB="/tmp/glt.dat"
+
 function cfgname()
 {
     if [[ -n "$WINDIR" ]]; then
         TESTCONFIG="`cygpath.exe -w $LOCALGOPATH\\\\$CFG`"
     fi
+}
+
+function getgeo()
+{
+	if [[ ! -f $GEODB ]]; then
+		wget -O "${GEODB}.gz" ${GEOWEB}
+		gunzip -c "${GEODB}.gz" > ${GEODB} && rm -f "${GEODB}.gz"
+	fi
 }
 
 if [[ ! -x $BUILD ]]; then
@@ -38,6 +49,8 @@ cp -f $CONFIG $TESTCONFIG
 
 # update TESTCONFIG path only for windows platform
 cfgname
+# download geoip database
+getgeo
 
 cd $REPO
 exec ${LOCALGOPATH}/bin/luss -config $TESTCONFIG
