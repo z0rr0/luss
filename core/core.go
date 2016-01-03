@@ -52,16 +52,25 @@ type cuInfo struct {
 func tracker(ch <-chan *cuInfo) {
 	var wg sync.WaitGroup
 	for cui := range ch {
+		c, err := conf.FromContext(cui.ctx)
+		if err != nil {
+			logger.Printf("tracker wasn't called, error: %v", err)
+			continue
+		}
 		wg.Add(2)
 		// tracker
 		go func() {
 			defer wg.Done()
-			stats.Tracker(cui.ctx, cui.cu, cui.addr)
+			if err := stats.Tracker(cui.ctx, cui.cu, cui.addr); err != nil {
+				c.L.Error.Println(err)
+			}
 		}()
 		// callback handler
 		go func() {
 			defer wg.Done()
-			// trim.Callback(s, cui.cu)
+			if err := stats.Callback(cui.ctx, cui.cu); err != nil {
+				c.L.Error.Println(err)
+			}
 		}()
 		wg.Wait()
 	}

@@ -10,8 +10,13 @@
 package stats
 
 import (
+	"bytes"
+	"errors"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -48,6 +53,43 @@ type Track struct {
 	Created time.Time     `bson:"ts"`
 }
 
+// Callback is a callback handler.
+// It does HTTP request if it's needed.
+func Callback(ctx context.Context, cu *trim.CustomURL) error {
+	if cu.Cb.URL == "" {
+		// empty callback
+		return nil
+	}
+	if cu.Cb.Method != "GET" && cu.Cb.Method != "POST" {
+		return errors.New("unknown callback method")
+	}
+	params := url.Values{}
+	params.Add(cu.Cb.Name, cu.Cb.Value)
+	params.Add("tag", cu.Tag)
+	params.Add("id", trim.Encode(cu.ID))
+	body := bytes.NewBufferString(params.Encode())
+	req, err := http.NewRequest(cu.Cb.Method, cu.Cb.URL, body)
+	if err != nil {
+		return err
+	}
+	req.Header = http.Header{"User-Agent": {"luss/0.1"}}
+	timeoutTLS, timeout := 5*time.Second, 7*time.Second
+	tr := &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
+		Dial:                (&net.Dialer{Timeout: timeout}).Dial,
+		TLSHandshakeTimeout: timeoutTLS,
+		// TLSClientConfig:     &tls.Config{InsecureSkipVerify: false},
+	}
+	client := &http.Client{Transport: tr, Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, err = ioutil.ReadAll(resp.Body)
+	return err
+}
+
 // Tracker saves info about short URL activities.
 func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	c, err := conf.FromContext(ctx)
@@ -57,13 +99,12 @@ func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	}
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		logger.Println(err)
 		return err
 	}
 	geo := GeoData{IP: host}
 	record, err := c.GeoDB.City(net.ParseIP(host))
 	if err != nil {
-		logger.Println(err)
+		c.L.Error.Println(err)
 	} else {
 		geo.Country = record.Country.Names["en"]
 		geo.City = record.City.Names["en"]
@@ -73,13 +114,11 @@ func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	}
 	s, err := db.NewSession(c.Conn, true)
 	if err != nil {
-		logger.Println(err)
 		return err
 	}
 	defer s.Close()
 	coll, err := db.Coll(s, "tracks")
 	if err != nil {
-		logger.Println(err)
 		return err
 	}
 	err = coll.Insert(bson.M{
@@ -90,8 +129,5 @@ func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 		"geo":   geo,
 		"ts":    time.Now().UTC(),
 	})
-	if err != nil {
-		logger.Println(err)
-	}
 	return err
 }

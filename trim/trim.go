@@ -32,9 +32,10 @@ var (
 
 // CallBack is callback info.
 type CallBack struct {
-	URL       string `bson:"u"`
-	Method    string `bson:"m"`
-	Parameter string `bson:"p"`
+	URL    string `bson:"u"`
+	Method string `bson:"m"`
+	Name   string `bson:"name"`
+	Value  string `bson:"value"`
 }
 
 // CustomURL stores info about user's URL.

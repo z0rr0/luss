@@ -20,7 +20,8 @@
   "cb": {                           // callback settings
     "u": "https://domain.com/",     //   callback URL
     "m": "GET",                     //   callback method
-    "p": "string parameter",        //   additional callback parameter (also _id and tag will be added)
+    "name": "name",                 //   callback parameter name
+    "value": "string parameter",    //   callback parameter value (also _id and tag will be added)
   }
 }
 
