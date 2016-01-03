@@ -15,14 +15,17 @@ import (
 	"github.com/z0rr0/luss/db"
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/net/context"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
 const (
-	// Anonymous is a name of anonymous users and projects.
-	Anonymous     = "anonymous"
-	userKey   key = 1
-	tokenKey  key = 3
+	// Anonymous is a name of anonymous user.
+	Anonymous = "anonymous"
+	// Administrator is a name of administrator user.
+	Administrator     = "admin"
+	userKey       key = 1
+	tokenKey      key = 2
 )
 
 var (
@@ -49,6 +52,16 @@ func (u *User) String() string {
 	return u.Name
 }
 
+// HasRole check user has a requested role.
+func (u *User) HasRole(role string) bool {
+	for _, r := range u.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
 // genToken generates new user's token and
 // returns random hex number and its hash.
 // It looks as trapdoor function: token=R+Hash(R+S), where S is a secret salt.
@@ -59,12 +72,62 @@ func genToken(c *conf.Config) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+	h := tokenHash(b, c)
+	return hex.EncodeToString(b), hex.EncodeToString(h), nil
+}
+
+// tokenHash calculates a SHA3 token hash.
+func tokenHash(b []byte, c *conf.Config) []byte {
 	h := make([]byte, c.Listener.Security.TokenLen)
 	d := sha3.NewShake256()
 	d.Write([]byte(c.Listener.Security.Salt))
 	d.Write(b)
 	d.Read(h)
-	return hex.EncodeToString(b), hex.EncodeToString(h), nil
+	return h
+}
+
+// InitUsers initializes admin and anonymous users.
+func InitUsers(c *conf.Config) error {
+	s, err := db.NewSession(c.Conn, false)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "users")
+	if err != nil {
+		return err
+	}
+	b, err := hex.DecodeString(c.Listener.Security.Admin)
+	if err != nil {
+		return err
+	}
+	h := tokenHash(b, c)
+	now := time.Now().UTC()
+	users := []*User{
+		&User{
+			Name:     "admin",
+			Disabled: false,
+			Token:    hex.EncodeToString(h),
+			Roles:    []string{"admin"},
+			Modified: now,
+			Created:  now,
+		},
+		&User{
+			Name:     Anonymous,
+			Disabled: false,
+			Token:    "",
+			Roles:    []string{},
+			Modified: now,
+			Created:  now,
+		},
+	}
+	for _, u := range users {
+		err := coll.Insert(u)
+		if err != nil && !mgo.IsDup(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // EqualBytes compares two byte slices. It is crypto-safe, because
@@ -101,15 +164,7 @@ func CheckToken(ctx context.Context, token string) (context.Context, error) {
 		return ctx, err
 	}
 	n := len(hexToken)
-	// calculate token hash
-	h := make([]byte, c.Listener.Security.TokenLen)
-	d := sha3.NewShake256()
-	d.Write([]byte(c.Listener.Security.Salt))
-	d.Write(hexToken[:n/2])
-	d.Read(h)
-	// don't use bytes.Equal here, because
-	// timing attack can be applicable for this method.
-	if !EqualBytes(h, hexToken[n/2:]) {
+	if !EqualBytes(tokenHash(hexToken[:n/2], c), hexToken[n/2:]) {
 		return ctx, errors.New("invalid token")
 	}
 	// hex.EncodeToString(h) == token[l/2:]

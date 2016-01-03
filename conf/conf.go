@@ -52,6 +52,7 @@ type domain struct {
 type security struct {
 	Salt     string `json:"salt"`
 	TokenLen int    `json:"tokenlen"`
+	Admin    string `json:"admin"`
 }
 
 // listener is HTTP server configuration

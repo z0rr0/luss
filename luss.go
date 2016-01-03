@@ -89,6 +89,11 @@ func main() {
 	}
 	s.Close()
 	defer cfg.Close()
+	// init users
+	if err := auth.InitUsers(cfg); err != nil {
+		log.Panic(err)
+	}
+	// set init context
 	mainCtx := conf.NewContext(cfg)
 	mainCtx, err = core.RunWorkers(mainCtx)
 	if err != nil {
@@ -114,7 +119,7 @@ func main() {
 	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
 		"/":       Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
-		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "GET"},
+		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
 		// "/notfoud"
 		// "/error"
 		// "/api/add/"
