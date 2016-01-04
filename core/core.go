@@ -41,15 +41,15 @@ var (
 // key is a context key type.
 type key int
 
-// cuInfo is trim.CustomURL info with context.
-type cuInfo struct {
+// CuInfo is trim.CustomURL info with context.
+type CuInfo struct {
 	ctx  context.Context
 	cu   *trim.CustomURL
 	addr string
 }
 
 // tracker saves info customer short URL request.
-func tracker(ch <-chan *cuInfo) {
+func tracker(ch <-chan *CuInfo) {
 	var wg sync.WaitGroup
 	for cui := range ch {
 		c, err := conf.FromContext(cui.ctx)
@@ -82,7 +82,7 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return ctx, err
 	}
-	ch := make(chan *cuInfo, trackerBuffer)
+	ch := make(chan *CuInfo, trackerBuffer)
 	for i := 0; i < c.Settings.Trackers; i++ {
 		go func() {
 			tracker(ch)
@@ -93,8 +93,8 @@ func RunWorkers(ctx context.Context) (context.Context, error) {
 }
 
 // TrackerChan extracts tracker channel.
-func TrackerChan(ctx context.Context) (chan *cuInfo, error) {
-	p, ok := ctx.Value(trackerKey).(chan *cuInfo)
+func TrackerChan(ctx context.Context) (chan *CuInfo, error) {
+	p, ok := ctx.Value(trackerKey).(chan *CuInfo)
 	if !ok {
 		return nil, errors.New("not found context tracker channel")
 	}
@@ -185,14 +185,14 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 	if err != nil {
 		logger.Println(err)
 	} else {
-		cui := &cuInfo{ctx, cu, r.RemoteAddr}
+		cui := &CuInfo{ctx, cu, r.RemoteAddr}
 		ch <- cui
 	}
 	// TODO: check direct redirect
 	return cu.Original, nil
 }
 
-// HandlerIndex return index web page.
+// HandlerIndex returns index web page.
 func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	data := map[string]string{}
 	c, err := conf.FromContext(ctx)
@@ -216,6 +216,40 @@ func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) e
 			return err
 		}
 		data["Result"] = c.Address(cus[0].String())
+	}
+	return tpl.ExecuteTemplate(w, "base", data)
+}
+
+// HandlerNotFound returns "not found" web page.
+func HandlerNotFound(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	tpl, err := c.CacheTpl("error", "base.html", "error.html")
+	if err != nil {
+		return err
+	}
+	data := map[string]string{
+		"Message": "The page is not found.",
+		"Error":   "",
+	}
+	return tpl.ExecuteTemplate(w, "base", data)
+}
+
+// HandlerError returns "error" web page.
+func HandlerError(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	tpl, err := c.CacheTpl("error", "base.html", "error.html")
+	if err != nil {
+		return err
+	}
+	data := map[string]string{
+		"Message": "Error",
+		"Error":   "The error occurred, probably due to internal server problems.",
 	}
 	return tpl.ExecuteTemplate(w, "base", data)
 }

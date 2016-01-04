@@ -173,7 +173,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	cache, cacheOn := c.Cache.Strorage["Tpl"]
+	cache, cacheOn := c.Cache.Strorage["URL"]
 	if cacheOn {
 		if cu, ok := cache.Get(short); ok {
 			// c.L.Debug.Println("read from LRU cache", short)

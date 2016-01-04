@@ -118,31 +118,40 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	// keys should not match to isShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/":       Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
-		"/test/t": Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
-		// "/notfoud"
-		// "/error"
+		"/":              Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
+		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
+		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
+		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
 		// "/api/add/"
 		// "/api/add/json"
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		errResp, url := false, "/"
+		url := "/"
 		if r.URL.Path != url {
 			url = strings.TrimRight(r.URL.Path, "/")
 		}
-		start, code := time.Now(), http.StatusOK
+		start, code, api := time.Now(), http.StatusOK, false
+		ctx, cancel := context.WithCancel(mainCtx)
 		defer func() {
-			if errResp {
-				http.Error(w, http.StatusText(code), code)
+			cancel()
+			switch {
+			case code == http.StatusNotFound && !api:
+				core.HandlerNotFound(ctx, w, r)
+			case code == http.StatusNotFound:
+				fmt.Fprintf(w, "TODO: api not found")
+			case code != http.StatusOK && !api:
+				core.HandlerError(ctx, w, r)
+			case code != http.StatusOK:
+				fmt.Fprintf(w, "TODO: api error")
+				// http.Error(w, http.StatusText(code), code)
 			}
 			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), url)
 		}()
-		ctx, cancel := context.WithCancel(mainCtx)
-		defer cancel()
 		rh, ok := handlers[url]
 		if ok {
+			api = rh.API
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
-				errResp, code = true, http.StatusMethodNotAllowed
+				code = http.StatusMethodNotAllowed
 				return
 			}
 			// pre-authentication: quickly check a token value
@@ -150,14 +159,14 @@ func main() {
 			// anonymous request should be allow/deny here
 			if err != nil && (rh.Auth || err != auth.ErrAnonymous) {
 				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
-				errResp, code = true, http.StatusUnauthorized
+				code = http.StatusUnauthorized
 				return
 			}
 			// open database session
 			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
 				cfg.L.Error.Println(err)
-				errResp, code = true, http.StatusInternalServerError
+				code = http.StatusInternalServerError
 				return
 			}
 			defer s.Close()
@@ -166,19 +175,19 @@ func main() {
 			ctx, err = auth.Authenticate(ctx)
 			if err != nil {
 				cfg.L.Error.Println(err)
-				errResp, code = true, http.StatusUnauthorized
+				code = http.StatusUnauthorized
 				return
 			}
 			// call a found handler
 			if err := rh.F(ctx, w, r); err != nil {
 				cfg.L.Error.Println(err)
-				errResp, code = true, http.StatusInternalServerError
+				code = http.StatusInternalServerError
 				return
 			}
 			return
 		} else if isShortURL.MatchString(url) {
 			if r.Method != "GET" {
-				errResp, code = true, http.StatusMethodNotAllowed
+				code = http.StatusMethodNotAllowed
 				return
 			}
 			link, err := core.HandlerRedirect(ctx, strings.TrimLeft(url, "/"), r)
@@ -188,15 +197,15 @@ func main() {
 				http.Redirect(w, r, link, code)
 			case err == mgo.ErrNotFound:
 				code = http.StatusNotFound
-				http.NotFound(w, r)
+				// http.NotFound(w, r)
 			default:
 				cfg.L.Error.Println(err)
-				errResp, code = true, http.StatusInternalServerError
+				code = http.StatusInternalServerError
 			}
 			return
 		}
 		code = http.StatusNotFound
-		http.NotFound(w, r)
+		// http.NotFound(w, r)
 	})
 	// run server
 	go func() {
