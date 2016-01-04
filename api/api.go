@@ -121,18 +121,18 @@ func validateAddParams(r *http.Request) ([]*trim.ReqParams, error) {
 func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return core.ErrHandler{err, http.StatusInternalServerError}
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
 	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
-		return core.ErrHandler{fmt.Errorf("unsupported content-type: %v", ct), http.StatusBadRequest}
+		return core.ErrHandler{Err: fmt.Errorf("unsupported content-type: %v", ct), Status: http.StatusBadRequest}
 	}
 	params, err := validateAddParams(r)
 	if err != nil {
-		return core.ErrHandler{err, http.StatusBadRequest}
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
 	}
 	cus, err := trim.Shorten(ctx, params)
 	if err != nil {
-		return core.ErrHandler{err, http.StatusInternalServerError}
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
 	items := make([]addResponseItem, len(cus))
 	for i, cu := range cus {
@@ -151,8 +151,8 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
-		return core.ErrHandler{err, http.StatusInternalServerError}
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
 	fmt.Fprintf(w, "%s", b)
-	return core.ErrHandler{nil, http.StatusOK}
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }

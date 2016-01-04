@@ -38,6 +38,7 @@ PACKAGES_CHECK=( \
 "db" \
 "trim" \
 "auth" \
+"api" \
 )
 
 if [ -z "$GOPATH" ]; then
