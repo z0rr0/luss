@@ -80,8 +80,11 @@ func tracker(ch <-chan *CuInfo) {
 		// callback handler
 		go func() {
 			defer wg.Done()
-			if err := stats.Callback(cui.ctx, cui.cu); err != nil {
-				c.L.Error.Println(err)
+			// anonymous callbacks can't be handled
+			if cui.cu.User != auth.Anonymous {
+				if err := stats.Callback(cui.ctx, cui.cu); err != nil {
+					c.L.Error.Println(err)
+				}
 			}
 		}()
 		wg.Wait()

@@ -121,6 +121,8 @@ func main() {
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
 		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
 		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
+		// /api/user/add
+		// /api/user/pwd
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := "/"
