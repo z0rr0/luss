@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -72,9 +71,6 @@ func main() {
 		fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
 		return
 	}
-	// max int64 9223372036854775807 => AzL8n0Y58m7
-	// real, max decode/encode 839299365868340223 <=> zzzzzzzzzz
-	isShortURL := regexp.MustCompile(fmt.Sprintf("^/[%s]{1,10}$", trim.Alphabet))
 	// configuration initialization
 	cfg, err := conf.Parse(*config)
 	if err != nil {
@@ -117,19 +113,19 @@ func main() {
 	// static files
 	staticDir, _ := cfg.StaticDir()
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-	// keys should not match to isShortURL pattern (short URLs set)
+	// keys should not match to trim.IsShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
 		"/":              Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
 		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
 		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
 		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
-		// "/api/get": Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
+		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		url := "/"
-		if r.URL.Path != url {
-			url = strings.TrimRight(r.URL.Path, "/")
+		path := "/"
+		if r.URL.Path != path {
+			path = strings.TrimRight(r.URL.Path, "/")
 		}
 		start, code, isAPI := time.Now(), http.StatusOK, false
 		ctx, cancel := context.WithCancel(mainCtx)
@@ -145,9 +141,9 @@ func main() {
 					cfg.L.Error.Println(err)
 				}
 			}
-			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), url)
+			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), path)
 		}()
-		rh, ok := handlers[url]
+		rh, ok := handlers[path]
 		if ok {
 			isAPI = rh.API
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
@@ -155,7 +151,7 @@ func main() {
 				return
 			}
 			// pre-authentication: quickly check a token value
-			ctx, err := auth.CheckToken(ctx, r.PostFormValue("token"))
+			ctx, err := auth.CheckToken(ctx, r, isAPI)
 			// anonymous request should be allow/deny here
 			authRequired := rh.Auth || !cfg.Settings.Anonymous
 			if err != nil && (authRequired || err != auth.ErrAnonymous) {
@@ -186,16 +182,16 @@ func main() {
 				return
 			}
 			return
-		} else if isShortURL.MatchString(url) {
+		} else if link, ok := trim.IsShort(path); ok {
 			if r.Method != "GET" {
 				code = http.StatusMethodNotAllowed
 				return
 			}
-			link, err := core.HandlerRedirect(ctx, strings.TrimLeft(url, "/"), r)
+			origURL, err := core.HandlerRedirect(ctx, link, r)
 			switch {
 			case err == nil:
 				code = http.StatusFound
-				http.Redirect(w, r, link, code)
+				http.Redirect(w, r, origURL, code)
 			case err == mgo.ErrNotFound:
 				code = http.StatusNotFound
 				// http.NotFound(w, r)

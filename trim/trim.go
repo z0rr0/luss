@@ -10,10 +10,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/z0rr0/luss/auth"
@@ -30,10 +34,16 @@ const (
 )
 
 var (
-	// basis is a numeral system basis
-	basis = int64(len(Alphabet))
 	// ErrEmptyCallback is error about empty empty callback usage.
 	ErrEmptyCallback = errors.New("empty callback request")
+	// isShortURL is regexp pattern to check short URL,
+	// max int64 9223372036854775807 => AzL8n0Y58m7
+	// real, max decode/encode 839299365868340223 <=> zzzzzzzzzz
+	isShortURL = regexp.MustCompile(fmt.Sprintf("^[%s]{1,10}$", Alphabet))
+	// logger is a logger for error messages
+	logger = log.New(os.Stderr, "LOGGER [trim]: ", log.Ldate|log.Ltime|log.Lshortfile)
+	// basis is a numeral system basis
+	basis = int64(len(Alphabet))
 )
 
 // CallBack is callback info.
@@ -200,6 +210,42 @@ func Decode(x string) (int64, error) {
 	return result, nil
 }
 
+// MultiLengthen return short URLs info for slice of links.
+func MultiLengthen(ctx context.Context, links []string) ([]*CustomURL, error) {
+	var result []*CustomURL
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	n := len(links)
+	if n > c.Settings.MaxPack {
+		return nil, fmt.Errorf("too big pack size [%v]", n)
+	}
+	s, err := db.NewSession(c.Conn, false)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return nil, err
+	}
+	ids := []int64{}
+	for _, link := range links {
+		id, err := Decode(link)
+		if err != nil {
+			logger.Printf("decode error [%v]: %v", link, err)
+			continue
+		}
+		ids = append(ids, id)
+	}
+	err = coll.Find(bson.M{"_id": bson.M{"$in": ids}}).All(&result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // Lengthen converts a short link to original one.
 // It uses own database session if it's needed
 // or it gets data from the cache.
@@ -297,4 +343,10 @@ func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 		return nil, err
 	}
 	return cus, nil
+}
+
+// IsShort checks link can be short URL.
+func IsShort(link string) (string, bool) {
+	pattern := strings.Trim(link, "/")
+	return pattern, isShortURL.MatchString(pattern)
 }

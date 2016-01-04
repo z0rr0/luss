@@ -142,15 +142,15 @@ func (c *Config) Close() {
 }
 
 // Address returns a full URL address.
-func (c *Config) Address(url string) string {
+func (c *Config) Address(uri string) string {
 	domain := c.Domain.Name
 	if c.Debug {
 		domain += fmt.Sprintf(":%v", c.Listener.Port)
 	}
 	if c.Domain.Secure {
-		return fmt.Sprintf("https://%s/%s", domain, url)
+		return fmt.Sprintf("https://%s/%s", domain, uri)
 	}
-	return fmt.Sprintf("http://%s/%s", domain, url)
+	return fmt.Sprintf("http://%s/%s", domain, uri)
 }
 
 // checkTemplates verifies template path value and updates it if needed.

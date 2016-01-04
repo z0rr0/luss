@@ -18,7 +18,9 @@ Special:
 
 ### API
 
-**JSON POST /api/add** - add new short link
+User's token should be sent inside header **Authorization** with a prefix **Bearer**. If the token is not presented then request will be handled as anonymous one.
+
+**JSON POST /api/add** - add new short links
 
 ```js
 // request
@@ -52,7 +54,34 @@ Special:
 }
 
 // example
-curl -H "Content-Type: application/json" -X POST --data '[{"url": "http://domain", "tag": "", "group": "", "ttl": null, "nd": false, "cb": {"url": "", "method": "", "name": "", "value": ""}}]' http://<URL>/api/add
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"url": "http://domain", "tag": "", "group": "", "ttl": null, "nd": false, "cb": {"url": "", "method": "", "name": "", "value": ""}}]' http://<CUSTOM_DOMAIN>/api/add
+```
+
+**JSON POST /api/get** - get short links
+
+```js
+// request
+[
+  {
+    "short": "http://short_url.com"
+  }
+]
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  "result": [
+    {
+      "url": "http://some_url.com",
+      "short": "http://short_url.com",
+      "id": "short_url.com",
+    }
+  ]
+}
+
+// example
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/P"}, {"short": "http://<CUSTOM_DOMAIN>/O"}]' http://<CUSTOM_DOMAIN>/api/get
 ```
 
 ### License

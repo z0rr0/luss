@@ -59,6 +59,11 @@ type addResponse struct {
 	Result []addResponseItem `json:"result"`
 }
 
+// getRequest is JSON API get request data.
+type getRequest struct {
+	Short string `json:"short"`
+}
+
 // HandlerError returns JSON API response about the error.
 func HandlerError(w http.ResponseWriter, code int) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -126,11 +131,73 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		return core.ErrHandler{Err: fmt.Errorf("unsupported content-type: %v", ct), Status: http.StatusBadRequest}
 	}
+	defer r.Body.Close()
 	params, err := validateAddParams(r)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
 	}
 	cus, err := trim.Shorten(ctx, params)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	items := make([]addResponseItem, len(cus))
+	for i, cu := range cus {
+		id := cu.String()
+		items[i] = addResponseItem{
+			ID:       id,
+			Short:    c.Address(id),
+			Original: cu.Original,
+		}
+	}
+	result := &addResponse{
+		Err:    0,
+		Msg:    "ok",
+		Result: items,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerGet returns info about short URLs.
+func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	var grs []getRequest
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		return core.ErrHandler{Err: fmt.Errorf("unsupported content-type: %v", ct), Status: http.StatusBadRequest}
+	}
+	defer r.Body.Close()
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&grs)
+	if (err != nil) && (err != io.EOF) {
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+	}
+	links := []string{}
+	for i := range grs {
+		link, err := core.TrimAddress(grs[i].Short)
+		if err != nil {
+			c.L.Error.Printf("invalid short url [%v]: %v", link, err)
+			continue
+		}
+		if l, ok := trim.IsShort(link); ok {
+			links = append(links, l)
+		}
+	}
+	if len(links) == 0 {
+		if err := HandlerError(w, http.StatusOK); err != nil {
+			c.L.Error.Println(err)
+		}
+		c.L.Debug.Println("empty request")
+		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+	}
+	cus, err := trim.MultiLengthen(ctx, links)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}

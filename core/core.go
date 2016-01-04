@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -140,6 +141,15 @@ func validateParams(r *http.Request) (*trim.ReqParams, error) {
 		return nil, err
 	}
 	return params, nil
+}
+
+// TrimAddress returns URL path.
+func TrimAddress(uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	return u.EscapedPath(), nil
 }
 
 // HandlerTest handles test GET request.

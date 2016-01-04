@@ -9,6 +9,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/z0rr0/luss/conf"
@@ -60,6 +62,11 @@ func (u *User) HasRole(role string) bool {
 		}
 	}
 	return false
+}
+
+// IsAnonymous returns true if user is anonymous.
+func (u *User) IsAnonymous() bool {
+	return u.Name == Anonymous
 }
 
 // genToken generates new user's token and
@@ -150,7 +157,19 @@ func EqualBytes(x, y []byte) bool {
 // CheckToken verifies the token, checks length and hash value.
 // If the token is valid, then its 2nd part (hash) will be added to the returned context.
 // It also marks empty token as ErrAnonymous error.
-func CheckToken(ctx context.Context, token string) (context.Context, error) {
+func CheckToken(ctx context.Context, r *http.Request, api bool) (context.Context, error) {
+	var token string
+	if api {
+		if bearer := r.Header.Get("Authorization"); bearer != "" && !strings.HasPrefix(bearer, "Bearer") {
+			return ctx, errors.New("invalid authorization data format")
+		} else if bearer != "" {
+			// split "Bearer"
+			bearer = strings.Trim(bearer, ";")
+			token = bearer[6:]
+		}
+	} else {
+		token = r.PostFormValue("token")
+	}
 	l := len(token)
 	if l == 0 {
 		return setTokenContext(ctx, ""), ErrAnonymous
