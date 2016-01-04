@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -41,11 +40,23 @@ var (
 // key is a context key type.
 type key int
 
+// ErrHandler is a struct that contains handler error
+// and returned HTTP status code.
+type ErrHandler struct {
+	Err    error
+	Status int
+}
+
 // CuInfo is trim.CustomURL info with context.
 type CuInfo struct {
 	ctx  context.Context
 	cu   *trim.CustomURL
 	addr string
+}
+
+// String return main string info about error handler.
+func (eh ErrHandler) String() string {
+	return fmt.Sprintf("%d: %v", eh.Status, eh.Err)
 }
 
 // tracker saves info customer short URL request.
@@ -102,30 +113,15 @@ func TrackerChan(ctx context.Context) (chan *CuInfo, error) {
 }
 
 // validateParams checks HTTP parameters.
-func validateParams(r *http.Request) (trim.ReqParams, error) {
+func validateParams(r *http.Request) (*trim.ReqParams, error) {
 	var (
-		nd     bool
-		tag    string
-		err    error
-		rawURL string
-		u      *url.URL
-		ttl    *time.Time
-		p      trim.ReqParams
+		nd  bool
+		ttl *time.Time
 	)
-	rawURL = r.PostFormValue("url")
-	if rawURL == "" {
-		return p, errors.New("empty URL request parameter")
-	}
-	// it is only to validate url value and escaping
-	u, err = url.ParseRequestURI(rawURL)
-	if err != nil {
-		return p, err
-	}
-	tag = r.PostFormValue("tag")
 	if v := r.PostFormValue("ttl"); v != "" {
 		t, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
-			return p, err
+			return nil, err
 		}
 		expire := time.Now().Add(time.Duration(t) * time.Hour).UTC()
 		ttl = &expire
@@ -133,24 +129,28 @@ func validateParams(r *http.Request) (trim.ReqParams, error) {
 	if v := r.PostFormValue("nd"); v != "" {
 		nd = true
 	}
-	params := trim.ReqParams{
-		Original:  u.String(),
-		Tag:       tag,
+	params := &trim.ReqParams{
+		Original:  r.PostFormValue("url"),
+		Tag:       r.PostFormValue("tag"),
 		NotDirect: nd,
 		TTL:       ttl,
+	}
+	err := params.Valid()
+	if err != nil {
+		return nil, err
 	}
 	return params, nil
 }
 
 // HandlerTest handles test GET request.
-func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) ErrHandler {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	coll, err := db.C(ctx, "tests")
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	command := r.FormValue("write")
 	switch {
@@ -160,19 +160,19 @@ func HandlerTest(ctx context.Context, w http.ResponseWriter, r *http.Request) er
 		err = coll.Remove(nil)
 	}
 	if err != nil && err != mgo.ErrNotFound {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	n, err := coll.Count()
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	u, err := auth.ExtractUser(ctx)
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	c.L.Debug.Printf("user=%v", u)
 	fmt.Fprintf(w, "found %v items", n)
-	return nil
+	return ErrHandler{nil, http.StatusOK}
 }
 
 // HandlerRedirect searches saved original URL by a short one.
@@ -193,63 +193,79 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 }
 
 // HandlerIndex returns index web page.
-func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) ErrHandler {
 	data := map[string]string{}
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	tpl, err := c.CacheTpl("base", "base.html", "index.html")
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	if r.Method == "POST" {
 		p, err := validateParams(r)
 		if err != nil {
 			c.L.Error.Println(err)
 			data["Error"] = "Invalid data."
-			return tpl.ExecuteTemplate(w, "base", data)
+			err = tpl.ExecuteTemplate(w, "base", data)
+			if err != nil {
+				return ErrHandler{err, http.StatusInternalServerError}
+			}
+			return ErrHandler{nil, http.StatusOK}
 		}
-		params := []trim.ReqParams{p}
+		params := []*trim.ReqParams{p}
 		cus, err := trim.Shorten(ctx, params)
 		if err != nil {
-			return err
+			return ErrHandler{err, http.StatusInternalServerError}
 		}
 		data["Result"] = c.Address(cus[0].String())
 	}
-	return tpl.ExecuteTemplate(w, "base", data)
+	err = tpl.ExecuteTemplate(w, "base", data)
+	if err != nil {
+		return ErrHandler{err, http.StatusInternalServerError}
+	}
+	return ErrHandler{nil, http.StatusOK}
 }
 
 // HandlerNotFound returns "not found" web page.
-func HandlerNotFound(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func HandlerNotFound(ctx context.Context, w http.ResponseWriter, r *http.Request) ErrHandler {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	tpl, err := c.CacheTpl("error", "base.html", "error.html")
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	data := map[string]string{
 		"Message": "The page is not found.",
 		"Error":   "",
 	}
-	return tpl.ExecuteTemplate(w, "base", data)
+	err = tpl.ExecuteTemplate(w, "base", data)
+	if err != nil {
+		return ErrHandler{err, http.StatusInternalServerError}
+	}
+	return ErrHandler{nil, http.StatusOK}
 }
 
 // HandlerError returns "error" web page.
-func HandlerError(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+func HandlerError(ctx context.Context, w http.ResponseWriter, r *http.Request) ErrHandler {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	tpl, err := c.CacheTpl("error", "base.html", "error.html")
 	if err != nil {
-		return err
+		return ErrHandler{err, http.StatusInternalServerError}
 	}
 	data := map[string]string{
 		"Message": "Error",
 		"Error":   "The error occurred, probably due to internal server problems.",
 	}
-	return tpl.ExecuteTemplate(w, "base", data)
+	err = tpl.ExecuteTemplate(w, "base", data)
+	if err != nil {
+		return ErrHandler{err, http.StatusInternalServerError}
+	}
+	return ErrHandler{nil, http.StatusOK}
 }

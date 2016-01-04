@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/z0rr0/luss/api"
 	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
@@ -45,7 +46,7 @@ var (
 
 // Handler is a struct to check and handle incoming HTTP request.
 type Handler struct {
-	F      func(ctx context.Context, w http.ResponseWriter, r *http.Request) error
+	F      func(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler
 	Auth   bool
 	API    bool
 	Method string
@@ -122,34 +123,33 @@ func main() {
 		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
 		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
-		// "/api/add/"
-		// "/api/add/json"
+		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
+		// "/api/get": Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		url := "/"
 		if r.URL.Path != url {
 			url = strings.TrimRight(r.URL.Path, "/")
 		}
-		start, code, api := time.Now(), http.StatusOK, false
+		start, code, isAPI := time.Now(), http.StatusOK, false
 		ctx, cancel := context.WithCancel(mainCtx)
 		defer func() {
 			cancel()
 			switch {
-			case code == http.StatusNotFound && !api:
+			case code == http.StatusNotFound && !isAPI:
 				core.HandlerNotFound(ctx, w, r)
-			case code == http.StatusNotFound:
-				fmt.Fprintf(w, "TODO: api not found")
-			case code != http.StatusOK && !api:
+			case code != http.StatusOK && !isAPI:
 				core.HandlerError(ctx, w, r)
 			case code != http.StatusOK:
-				fmt.Fprintf(w, "TODO: api error")
-				// http.Error(w, http.StatusText(code), code)
+				if err := api.HandlerError(w, code); err != nil {
+					cfg.L.Error.Println(err)
+				}
 			}
 			cfg.L.Info.Printf("%-5v %v\t%-12v\t%v", r.Method, code, time.Since(start), url)
 		}()
 		rh, ok := handlers[url]
 		if ok {
-			api = rh.API
+			isAPI = rh.API
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
 				code = http.StatusMethodNotAllowed
 				return
@@ -157,7 +157,8 @@ func main() {
 			// pre-authentication: quickly check a token value
 			ctx, err := auth.CheckToken(ctx, r.PostFormValue("token"))
 			// anonymous request should be allow/deny here
-			if err != nil && (rh.Auth || err != auth.ErrAnonymous) {
+			authRequired := rh.Auth || !cfg.Settings.Anonymous
+			if err != nil && (authRequired || err != auth.ErrAnonymous) {
 				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
 				code = http.StatusUnauthorized
 				return
@@ -179,9 +180,9 @@ func main() {
 				return
 			}
 			// call a found handler
-			if err := rh.F(ctx, w, r); err != nil {
+			if err := rh.F(ctx, w, r); err.Err != nil {
 				cfg.L.Error.Println(err)
-				code = http.StatusInternalServerError
+				code = err.Status
 				return
 			}
 			return

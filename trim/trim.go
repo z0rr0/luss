@@ -76,6 +76,41 @@ func (cu *CustomURL) String() string {
 	return Encode(cu.ID)
 }
 
+// String returns request info.
+func (rp *ReqParams) String() string {
+	return rp.Original
+}
+
+// Valid checks ReqParams values.
+func (rp *ReqParams) Valid() error {
+	const lenLimit = 255
+	if rp.Original == "" {
+		return errors.New("empty request parameters")
+	}
+	if len(rp.Tag) > lenLimit {
+		return errors.New("too long tag value")
+	}
+	if len(rp.Group) > lenLimit {
+		return errors.New("too long group name")
+	}
+	u, err := url.ParseRequestURI(rp.Original)
+	if err != nil {
+		return err
+	}
+	rp.Original = u.String()
+	if rp.Cb.URL != "" {
+		u, err = url.ParseRequestURI(rp.Cb.URL)
+		if err != nil {
+			return err
+		}
+		rp.Cb.URL = u.String()
+		if rp.Cb.Method != "GET" && rp.Cb.Method != "POST" {
+			return errors.New("unknown or not allowed request method")
+		}
+	}
+	return nil
+}
+
 // Callback returns a prepared body request Reader as bytes.Buffer pointer.
 func (cu *CustomURL) Callback() (*http.Request, error) {
 	if cu.Cb.URL == "" {
@@ -205,7 +240,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 }
 
 // Shorten returns new short link.
-func Shorten(ctx context.Context, params []ReqParams) ([]*CustomURL, error) {
+func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return nil, err
