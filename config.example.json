@@ -46,6 +46,6 @@
   },
   "cache": {                      // cache settings
     "urls": 8,                    // LRU cache size for short URLs, 0 - disabled
-    "templates": 1                // templates cache
+    "templates": 0                // LRU templates cache, 0 - disabled
   }
 }

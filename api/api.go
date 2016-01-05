@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/trim"
@@ -62,6 +62,25 @@ type addResponse struct {
 // getRequest is JSON API get request data.
 type getRequest struct {
 	Short string `json:"short"`
+}
+
+// userAddRequest is request data of new user.
+type userAddRequest struct {
+	Name string `json:"name"`
+}
+
+// userAddResponseItem is info about user creation result.
+type userAddResponseItem struct {
+	Name  string `json:"name"`
+	Token string `json:"token"`
+	Err   string `json:"error"`
+}
+
+// userAddResponse is a response for user add request.
+type userAddResponse struct {
+	Err    int                   `json:"errcode"`
+	Msg    string                `json:"msg"`
+	Result []userAddResponseItem `json:"result"`
 }
 
 // HandlerError returns JSON API response about the error.
@@ -128,9 +147,6 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
-	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
-		return core.ErrHandler{Err: fmt.Errorf("unsupported content-type: %v", ct), Status: http.StatusBadRequest}
-	}
 	defer r.Body.Close()
 	params, err := validateAddParams(r)
 	if err != nil {
@@ -170,9 +186,6 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
-	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
-		return core.ErrHandler{Err: fmt.Errorf("unsupported content-type: %v", ct), Status: http.StatusBadRequest}
-	}
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(&grs)
@@ -211,6 +224,71 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		}
 	}
 	result := &addResponse{
+		Err:    0,
+		Msg:    "ok",
+		Result: items,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerUserAdd creates new user.
+func HandlerUserAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	var uar []userAddRequest
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	user, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	if !user.HasRole("admin") {
+		return core.ErrHandler{Err: errors.New("permissions error"), Status: http.StatusForbidden}
+	}
+	defer r.Body.Close()
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&uar)
+	if (err != nil) && (err != io.EOF) {
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+	}
+	if len(uar) == 0 {
+		if err := HandlerError(w, http.StatusOK); err != nil {
+			c.L.Error.Println(err)
+		}
+		c.L.Debug.Println("empty request")
+		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+	}
+	names := make([]string, len(uar))
+	for i, v := range uar {
+		names[i] = v.Name
+	}
+	usersResult, err := auth.CreateUsers(ctx, names)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	items := make([]userAddResponseItem, len(usersResult))
+	for i, ur := range usersResult {
+		if ur.Err != "" {
+			items[i] = userAddResponseItem{
+				Name:  ur.Name,
+				Token: "",
+				Err:   ur.Err,
+			}
+		} else {
+			items[i] = userAddResponseItem{
+				Name:  ur.U.Name,
+				Token: ur.T,
+				Err:   "",
+			}
+		}
+	}
+	result := &userAddResponse{
 		Err:    0,
 		Msg:    "ok",
 		Result: items,

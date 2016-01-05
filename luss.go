@@ -121,7 +121,7 @@ func main() {
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
 		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
 		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
-		// /api/user/add
+		"/api/user/add":  Handler{F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
 		// /api/user/pwd
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -150,6 +150,11 @@ func main() {
 			isAPI = rh.API
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
 				code = http.StatusMethodNotAllowed
+				return
+			}
+			// API accepts only JSON requests
+			if ct := r.Header.Get("Content-Type"); isAPI && !strings.HasPrefix(ct, "application/json") {
+				code = http.StatusBadRequest
 				return
 			}
 			// pre-authentication: quickly check a token value

@@ -49,6 +49,14 @@ type User struct {
 	Created  time.Time `bson:"ct"`
 }
 
+// UserResult is result of user creation.
+type UserResult struct {
+	U    *User
+	Name string
+	T    string
+	Err  string
+}
+
 // String returns user's name
 func (u *User) String() string {
 	return u.Name
@@ -242,4 +250,46 @@ func Authenticate(ctx context.Context) (context.Context, error) {
 		return ctx, err
 	}
 	return setUserContext(ctx, u), nil
+}
+
+// CreateUsers creates new users.
+func CreateUsers(ctx context.Context, names []string) ([]UserResult, error) {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	coll, err := db.Coll(s, "users")
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	result := make([]UserResult, len(names))
+	for i, name := range names {
+		token, hash, err := genToken(c)
+		if err != nil {
+			result[i] = UserResult{Name: name, U: nil, Err: "internal error"}
+			continue
+		}
+		user := &User{
+			Name:     name,
+			Token:    hash,
+			Roles:    []string{"user"},
+			Modified: now,
+			Created:  now,
+		}
+		if err := coll.Insert(user); err != nil {
+			if mgo.IsDup(err) {
+				result[i] = UserResult{Name: name, U: nil, Err: "duplicate item"}
+			} else {
+				result[i] = UserResult{Name: name, U: nil, Err: "internal error"}
+			}
+			continue
+		}
+		result[i] = UserResult{Name: name, U: user, T: token + hash, Err: ""}
+	}
+	return result, nil
 }

@@ -70,7 +70,7 @@ func tracker(ch <-chan *CuInfo) {
 			continue
 		}
 		wg.Add(2)
-		// tracker
+		// tracker handler
 		go func() {
 			defer wg.Done()
 			if err := stats.Tracker(cui.ctx, cui.cu, cui.addr); err != nil {
@@ -80,7 +80,7 @@ func tracker(ch <-chan *CuInfo) {
 		// callback handler
 		go func() {
 			defer wg.Done()
-			// anonymous callbacks can't be handled
+			// anonymous callbacks will not be handled
 			if cui.cu.User != auth.Anonymous {
 				if err := stats.Callback(cui.ctx, cui.cu); err != nil {
 					c.L.Error.Println(err)

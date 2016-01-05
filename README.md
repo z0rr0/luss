@@ -84,6 +84,30 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/P"}, {"short": "http://<CUSTOM_DOMAIN>/O"}]' http://<CUSTOM_DOMAIN>/api/get
 ```
 
+**JSON POST /api/user/add** - creates new user
+
+```js
+// request
+[
+  {
+    "name": "username"
+  }
+]
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  result: [
+    {
+      "name": "username",
+      "token": "secrete token",
+      "error": ""
+    }
+  ]
+}
+```
+
 ### License
 
 This source code is governed by a [LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.txt) license that can be found in the [LICENSE](https://github.com/z0rr0/luss/blob/master/LICENSE) file.
