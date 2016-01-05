@@ -20,6 +20,8 @@ Special:
 
 User's token should be sent inside header **Authorization** with a prefix **Bearer**. If the token is not presented then request will be handled as anonymous one.
 
+JSON array size has a limit, it is **maxpack** from the configuration file.
+
 **JSON POST /api/add** - add new short links
 
 ```js
@@ -84,7 +86,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/P"}, {"short": "http://<CUSTOM_DOMAIN>/O"}]' http://<CUSTOM_DOMAIN>/api/get
 ```
 
-**JSON POST /api/user/add** - creates new user
+**JSON POST /api/user/add** - creates new user, only user with "admin" role has permissions for this request.
 
 ```js
 // request
@@ -106,7 +108,36 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+
+// example
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/add
 ```
+
+**JSON POST /api/user/pwd** - updates new user's token, only admin can change data of other users, but everyone can update his token.
+
+```js
+// request
+[
+  {
+    "name": "username"
+  }
+]
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  result: [
+    {
+      "name": "username",
+      "token": "secrete token",
+      "error": ""
+    }
+  ]
+}
+
+// example
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/add
 
 ### License
 

@@ -252,6 +252,51 @@ func Authenticate(ctx context.Context) (context.Context, error) {
 	return setUserContext(ctx, u), nil
 }
 
+// ChangeUsers updates user's tokens
+func ChangeUsers(ctx context.Context, names []string) ([]UserResult, error) {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	user, err := ExtractUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	coll, err := db.Coll(s, "users")
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	isAdmin := user.HasRole("admin")
+	result := make([]UserResult, len(names))
+	for i, name := range names {
+		if !isAdmin && user.Name != name {
+			result[i] = UserResult{Name: name, U: nil, Err: "permissions error"}
+			continue
+		}
+		token, hash, err := genToken(c)
+		if err != nil {
+			result[i] = UserResult{Name: name, U: nil, Err: "internal error"}
+			continue
+		}
+		err = coll.UpdateId(name, bson.M{"$set": bson.M{"token": hash, "mt": now}})
+		if err != nil {
+			errMsg := "internal error"
+			if err == mgo.ErrNotFound {
+				errMsg = "not found"
+			}
+			result[i] = UserResult{Name: name, U: nil, Err: errMsg}
+			continue
+		}
+		result[i] = UserResult{Name: name, U: nil, T: token + hash, Err: ""}
+	}
+	return result, nil
+}
+
 // CreateUsers creates new users.
 func CreateUsers(ctx context.Context, names []string) ([]UserResult, error) {
 	c, err := conf.FromContext(ctx)
