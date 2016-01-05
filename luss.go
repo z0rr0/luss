@@ -123,6 +123,7 @@ func main() {
 		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
 		"/api/user/add":  Handler{F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
 		"/api/user/pwd":  Handler{F: api.HandlerPwd, Auth: true, API: true, Method: "POST"},
+		"/api/user/del":  Handler{F: api.HandlerUserDel, Auth: true, API: true, Method: "POST"},
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := "/"

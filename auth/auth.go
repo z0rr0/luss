@@ -252,7 +252,36 @@ func Authenticate(ctx context.Context) (context.Context, error) {
 	return setUserContext(ctx, u), nil
 }
 
-// ChangeUsers updates user's tokens
+// DisableUsers deactivates users' accounts.
+// Administrator permissions should be checked before this call.
+func DisableUsers(ctx context.Context, names []string) ([]UserResult, error) {
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	coll, err := db.Coll(s, "users")
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	result := make([]UserResult, len(names))
+	for i, name := range names {
+		err = coll.Update(bson.M{"_id": name, "off": false}, bson.M{"$set": bson.M{"off": true, "mt": now}})
+		if err != nil {
+			errMsg := "internal error"
+			if err == mgo.ErrNotFound {
+				errMsg = "not found"
+			}
+			result[i] = UserResult{Name: name, Err: errMsg}
+			continue
+		}
+		result[i] = UserResult{Name: name, Err: ""}
+	}
+	return result, nil
+}
+
+// ChangeUsers updates user's tokens.
+// Administrator permissions should be checked before this call.
 func ChangeUsers(ctx context.Context, names []string) ([]UserResult, error) {
 	c, err := conf.FromContext(ctx)
 	if err != nil {

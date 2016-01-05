@@ -137,7 +137,35 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 }
 
 // example
-curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/add
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/pwd
+```
+
+**JSON POST /api/user/del** - remove users, only admin can admin has permissions for this request.
+
+```js
+// request
+[
+  {
+    "name": "username"
+  }
+]
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  result: [
+    {
+      "name": "username",
+      "error": ""
+    }
+  ]
+}
+
+// example
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/del
+```
+
 
 ### License
 

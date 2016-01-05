@@ -83,6 +83,19 @@ type userAddResponse struct {
 	Result []userAddResponseItem `json:"result"`
 }
 
+// userDelResponseItem is info about user delete result.
+type userDelResponseItem struct {
+	Name string `json:"name"`
+	Err  string `json:"error"`
+}
+
+// userDelResponse is a response for users delete request.
+type userDelResponse struct {
+	Err    int                   `json:"errcode"`
+	Msg    string                `json:"msg"`
+	Result []userDelResponseItem `json:"result"`
+}
+
 // HandlerError returns JSON API response about the error.
 func HandlerError(w http.ResponseWriter, code int) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -339,21 +352,69 @@ func HandlerPwd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	}
 	items := make([]userAddResponseItem, len(usersResult))
 	for i, ur := range usersResult {
-		if ur.Err != "" {
-			items[i] = userAddResponseItem{
-				Name:  ur.Name,
-				Token: "",
-				Err:   ur.Err,
-			}
-		} else {
-			items[i] = userAddResponseItem{
-				Name:  ur.Name,
-				Token: ur.T,
-				Err:   "",
-			}
+		items[i] = userAddResponseItem{
+			Name:  ur.Name,
+			Token: ur.T,
+			Err:   "",
 		}
 	}
 	result := &userAddResponse{
+		Err:    0,
+		Msg:    "ok",
+		Result: items,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerUserDel disables user.
+func HandlerUserDel(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	var uar []userAddRequest
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	user, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	if !user.HasRole("admin") {
+		return core.ErrHandler{Err: errors.New("permissions error"), Status: http.StatusForbidden}
+	}
+	defer r.Body.Close()
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&uar)
+	if (err != nil) && (err != io.EOF) {
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+	}
+	if len(uar) == 0 {
+		if err := HandlerError(w, http.StatusOK); err != nil {
+			c.L.Error.Println(err)
+		}
+		c.L.Debug.Println("empty request")
+		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+	}
+	names := make([]string, len(uar))
+	for i, v := range uar {
+		names[i] = v.Name
+	}
+	usersResult, err := auth.DisableUsers(ctx, names)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	items := make([]userDelResponseItem, len(usersResult))
+	for i, ur := range usersResult {
+		items[i] = userDelResponseItem{
+			Name: ur.Name,
+			Err:  ur.Err,
+		}
+	}
+	result := &userDelResponse{
 		Err:    0,
 		Msg:    "ok",
 		Result: items,
