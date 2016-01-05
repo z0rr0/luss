@@ -140,7 +140,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/pwd
 ```
 
-**JSON POST /api/user/del** - remove users, only admin can admin has permissions for this request.
+**JSON POST /api/user/del** - remove users, only admin can has permissions for this request.
 
 ```js
 // request
