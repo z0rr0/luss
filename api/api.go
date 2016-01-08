@@ -20,6 +20,11 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	// Version is API version.
+	Version = "0.0.1"
+)
+
 // shortResponse is common HTTP response.
 type shortResponse struct {
 	Err    int    `json:"errcode"`
@@ -94,6 +99,20 @@ type userDelResponse struct {
 	Err    int                   `json:"errcode"`
 	Msg    string                `json:"msg"`
 	Result []userDelResponseItem `json:"result"`
+}
+
+// infoResponseItem is a result item in info response.
+type infoResponseItem struct {
+	Version  string `json:"version"`
+	AuthOk   bool   `json:"authok"`
+	PackSize int    `json:"pack_size"`
+}
+
+// infoResponse is a response for info request.
+type infoResponse struct {
+	Err    int                `json:"errcode"`
+	Msg    string             `json:"msg"`
+	Result []infoResponseItem `json:"result"`
 }
 
 // HandlerError returns JSON API response about the error.
@@ -418,6 +437,36 @@ func HandlerUserDel(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		Err:    0,
 		Msg:    "ok",
 		Result: items,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerInfo returns main API info.
+func HandlerInfo(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	user, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	result := &infoResponse{
+		Err: 0,
+		Msg: "ok",
+		Result: []infoResponseItem{
+			infoResponseItem{
+				Version:  Version,
+				AuthOk:   !user.IsAnonymous(),
+				PackSize: c.Settings.MaxPack,
+			},
+		},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)

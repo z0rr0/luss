@@ -228,8 +228,8 @@ func ExtractTokenKey(ctx context.Context) (string, error) {
 
 // Authenticate checks user's authentication.
 // It doesn't validate user's token value and doesn't detect anonymous
-// request as error, so it should be identified before.
-// It writes User to new context.
+// request as error, so this should be identified before.
+// It writes User pointer to new context.
 func Authenticate(ctx context.Context) (context.Context, error) {
 	t, err := ExtractTokenKey(ctx)
 	if err != nil {

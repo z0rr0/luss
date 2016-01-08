@@ -119,6 +119,7 @@ func main() {
 		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
 		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
+		"/api/info":      Handler{F: api.HandlerInfo, Auth: false, API: true, Method: "GET"},
 		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
 		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
 		"/api/user/add":  Handler{F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
@@ -161,14 +162,14 @@ func main() {
 			}
 			// pre-authentication: quickly check a token value
 			ctx, err := auth.CheckToken(ctx, r, isAPI)
-			// anonymous request should be allow/deny here
+			// anonymous request should be allowed/denied here
 			authRequired := rh.Auth || !cfg.Settings.Anonymous
 			if err != nil && (authRequired || err != auth.ErrAnonymous) {
-				cfg.L.Debug.Printf("auth=%v, err=%v", rh.Auth, err)
+				cfg.L.Debug.Printf("authentication error [required=%v]: %v", rh.Auth, err)
 				code = http.StatusUnauthorized
 				return
 			}
-			// open database session
+			// open new database session
 			s, err := db.NewSession(cfg.Conn, true)
 			if err != nil {
 				cfg.L.Error.Println(err)
@@ -192,6 +193,7 @@ func main() {
 			}
 			return
 		} else if link, ok := trim.IsShort(path); ok {
+			// it's a short URL candidate
 			if r.Method != "GET" {
 				code = http.StatusMethodNotAllowed
 				return
@@ -203,7 +205,6 @@ func main() {
 				http.Redirect(w, r, origURL, code)
 			case err == mgo.ErrNotFound:
 				code = http.StatusNotFound
-				// http.NotFound(w, r)
 			default:
 				cfg.L.Error.Println(err)
 				code = http.StatusInternalServerError
@@ -211,7 +212,6 @@ func main() {
 			return
 		}
 		code = http.StatusNotFound
-		// http.NotFound(w, r)
 	})
 	// run server
 	go func() {
