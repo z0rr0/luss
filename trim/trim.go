@@ -285,7 +285,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 	return cu, nil
 }
 
-// Shorten returns new short link.
+// Shorten returns new short links.
 func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
