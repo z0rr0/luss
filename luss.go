@@ -110,6 +110,7 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 		ErrorLog:       cfg.L.Error,
 	}
+	maxSize := cfg.Settings.MaxReqSize << 20
 	// static files
 	staticDir, _ := cfg.StaticDir()
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
@@ -143,7 +144,7 @@ func main() {
 				core.HandlerNotFound(ctx, w, r)
 			case code != http.StatusOK && !isAPI:
 				core.HandlerError(ctx, w, r)
-			case code != http.StatusOK:
+			case code >= 300:
 				if err := api.HandlerError(w, code); err != nil {
 					cfg.L.Error.Println(err)
 				}
@@ -155,6 +156,10 @@ func main() {
 			isAPI = rh.API
 			if (rh.Method != "ANY") && (rh.Method != r.Method) {
 				code = http.StatusMethodNotAllowed
+				return
+			}
+			if r.ContentLength > maxSize {
+				code = http.StatusRequestEntityTooLarge
 				return
 			}
 			// API accepts only JSON requests

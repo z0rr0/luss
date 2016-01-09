@@ -66,17 +66,18 @@ type listener struct {
 
 // settings is a struct for different settings.
 type settings struct {
-	MaxSpam   int    `json:"maxspam"`
-	CleanMin  int64  `json:"cleanup"`
-	CbAllow   bool   `json:"cballow"`
-	CbNum     int    `json:"cbnum"`
-	CbBuf     int    `json:"cbbuf"`
-	CbLength  int    `json:"cblength"`
-	MaxName   int    `json:"maxname"`
-	Anonymous bool   `json:"anonymous"`
-	MaxPack   int    `json:"maxpack"`
-	Trackers  int    `json:"trackers"`
-	GeoIPDB   string `json:"geoipdb"`
+	MaxSpam    int    `json:"maxspam"`
+	CleanMin   int64  `json:"cleanup"`
+	CbAllow    bool   `json:"cballow"`
+	CbNum      int    `json:"cbnum"`
+	CbBuf      int    `json:"cbbuf"`
+	CbLength   int    `json:"cblength"`
+	MaxName    int    `json:"maxname"`
+	Anonymous  bool   `json:"anonymous"`
+	MaxPack    int    `json:"maxpack"`
+	Trackers   int    `json:"trackers"`
+	GeoIPDB    string `json:"geoipdb"`
+	MaxReqSize int64  `json:"maxreqsize"`
 }
 
 // MongoCfg is database configuration settings
@@ -203,21 +204,23 @@ func (c *Config) Validate() error {
 	case len(c.Listener.Security.Salt) < saltLent:
 		err = errFunc(fmt.Sprintf("insecure salt value, min length is %v symbols", saltLent), "listener.security.salt")
 	case c.Settings.MaxSpam < 1:
-		err = errFunc("incorrect or empty value", "projects.maxspam")
+		err = errFunc("incorrect or empty value", "settings.maxspam")
 	case c.Settings.CleanMin < 1:
-		err = errFunc("incorrect or empty value", "projects.cleanup")
+		err = errFunc("incorrect or empty value", "settings.cleanup")
 	case c.Settings.CbNum < 1:
-		err = errFunc("incorrect or empty value", "projects.cbnum")
+		err = errFunc("incorrect or empty value", "settings.cbnum")
 	case c.Settings.CbBuf < 1:
-		err = errFunc("incorrect or empty value", "projects.cbbuf")
+		err = errFunc("incorrect or empty value", "settings.cbbuf")
 	case c.Settings.CbLength < 1:
-		err = errFunc("incorrect or empty value", "projects.cblength")
+		err = errFunc("incorrect or empty value", "settings.cblength")
 	case c.Settings.MaxName < 1:
-		err = errFunc("incorrect or empty value", "projects.maxname")
+		err = errFunc("incorrect or empty value", "settings.maxname")
 	case c.Settings.MaxPack < 1:
-		err = errFunc("incorrect or empty value", "projects.maxpack")
+		err = errFunc("incorrect or empty value", "settings.maxpack")
+	case c.Settings.MaxReqSize < 1:
+		err = errFunc("incorrect or empty value", "settings.maxreqsize")
 	case c.Settings.Trackers < 1:
-		err = errFunc("incorrect or empty value", "projects.trackers")
+		err = errFunc("incorrect or empty value", "settings.trackers")
 	case c.checkTemplates() != nil:
 		err = errFunc("invalid template name", "listener.templates")
 	case c.Cache.URLs < 0:

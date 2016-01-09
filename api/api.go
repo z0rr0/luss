@@ -117,12 +117,13 @@ type infoResponse struct {
 
 // HandlerError returns JSON API response about the error.
 func HandlerError(w http.ResponseWriter, code int) error {
-	w.Header().Set("Content-Type", "application/json")
 	resp := shortResponse{Err: code, Msg: http.StatusText(code), Result: []bool{}}
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}
+	w.WriteHeader(code)
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s\n", data)
 	return nil
 }
@@ -202,11 +203,11 @@ func HandlerAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		Msg:    "ok",
 		Result: items,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
@@ -260,11 +261,11 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		Msg:    "ok",
 		Result: items,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
@@ -325,11 +326,11 @@ func HandlerUserAdd(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		Msg:    "ok",
 		Result: items,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
@@ -382,11 +383,11 @@ func HandlerPwd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		Msg:    "ok",
 		Result: items,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
@@ -438,11 +439,11 @@ func HandlerUserDel(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		Msg:    "ok",
 		Result: items,
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
@@ -468,11 +469,11 @@ func HandlerInfo(ctx context.Context, w http.ResponseWriter, r *http.Request) co
 			},
 		},
 	}
-	w.Header().Set("Content-Type", "application/json")
 	b, err := json.Marshal(result)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, "%s", b)
 	return core.ErrHandler{Err: nil, Status: http.StatusOK}
 }
