@@ -1,0 +1,56 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"path": "github.com/hashicorp/golang-lru",
+			"revision": "5c7531c003d8bf158b0fe5063649a2f41a822146",
+			"revisionTime": "2015-12-26T15:27:37-08:00"
+		},
+		{
+			"path": "github.com/hashicorp/golang-lru/simplelru",
+			"revision": "5c7531c003d8bf158b0fe5063649a2f41a822146",
+			"revisionTime": "2015-12-26T15:27:37-08:00"
+		},
+		{
+			"path": "github.com/oschwald/geoip2-golang",
+			"revision": "bf3c2529e7f0619767568752f5155dd9c5125426",
+			"revisionTime": "2015-09-29T11:11:03+02:00"
+		},
+		{
+			"path": "github.com/oschwald/maxminddb-golang",
+			"revision": "b4a963502ba01ab44940ee21d5539bd65c726924",
+			"revisionTime": "2015-09-12T08:40:21-07:00"
+		},
+		{
+			"path": "golang.org/x/crypto/sha3",
+			"revision": "f23ba3a5ee43012fcb4b92e1a2a405a92554f4f2",
+			"revisionTime": "2016-01-07T07:52:56-08:00"
+		},
+		{
+			"path": "golang.org/x/net/context",
+			"revision": "f1d3149ecb40ffadf4a28d39a30f9a125fe57bdf",
+			"revisionTime": "2015-12-19T09:06:54-08:00"
+		},
+		{
+			"path": "gopkg.in/mgo.v2",
+			"revision": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49",
+			"revisionTime": "2015-12-07T00:15:13-02:00"
+		},
+		{
+			"path": "gopkg.in/mgo.v2/bson",
+			"revision": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49",
+			"revisionTime": "2015-12-07T00:15:13-02:00"
+		},
+		{
+			"path": "gopkg.in/mgo.v2/internal/sasl",
+			"revision": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49",
+			"revisionTime": "2015-12-07T00:15:13-02:00"
+		},
+		{
+			"path": "gopkg.in/mgo.v2/internal/scram",
+			"revision": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49",
+			"revisionTime": "2015-12-07T00:15:13-02:00"
+		}
+	]
+}
