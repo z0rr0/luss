@@ -8,7 +8,7 @@ JSON array size has a limit, it is **maxpack** from the configuration file.
 
 ```js
 // request
-Not needed.
+Not needed any data.
 
 // response
 {
@@ -80,6 +80,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
       "url": "http://some_url.com",
       "short": "http://short_url.com",
       "id": "short_url.com",
+      "error": ""
     }
   ]
 }
@@ -166,4 +167,28 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/del
+```
+
+**JSON POST /api/import** - import other short URLs (only for admin)
+
+```js
+// request
+[
+  {
+    "url": "http://some_url.com",
+    "short": "http://short_url.com"
+  }
+]
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  result: [
+    {
+      "short": "http://short_url.com",
+      "error": ""
+    }
+  ]
+}
 ```

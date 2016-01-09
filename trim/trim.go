@@ -81,6 +81,12 @@ type ReqParams struct {
 	Cb        CallBack
 }
 
+// ChangeResult is result of CustomURL pack change.
+type ChangeResult struct {
+	Cu  *CustomURL
+	Err string
+}
+
 // String returns short string URL without domain prefix.
 func (cu *CustomURL) String() string {
 	return Encode(cu.ID)
@@ -210,9 +216,12 @@ func Decode(x string) (int64, error) {
 	return result, nil
 }
 
-// MultiLengthen return short URLs info for slice of links.
-func MultiLengthen(ctx context.Context, links []string) ([]*CustomURL, error) {
-	var result []*CustomURL
+// MultiLengthen returns short URLs info for slice of links.
+func MultiLengthen(ctx context.Context, links []string) ([]ChangeResult, error) {
+	var (
+		cus    []*CustomURL
+		result []ChangeResult
+	)
 	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -235,13 +244,17 @@ func MultiLengthen(ctx context.Context, links []string) ([]*CustomURL, error) {
 		id, err := Decode(link)
 		if err != nil {
 			logger.Printf("decode error [%v]: %v", link, err)
+			result = append(result, ChangeResult{Err: "invalid value"})
 			continue
 		}
 		ids = append(ids, id)
 	}
-	err = coll.Find(bson.M{"_id": bson.M{"$in": ids}}).All(&result)
+	err = coll.Find(bson.M{"_id": bson.M{"$in": ids}}).All(&cus)
 	if err != nil {
 		return nil, err
+	}
+	for i := range cus {
+		result = append(result, ChangeResult{Cu: cus[i]})
 	}
 	return result, nil
 }
@@ -349,4 +362,66 @@ func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 func IsShort(link string) (string, bool) {
 	pattern := strings.Trim(link, "/")
 	return pattern, isShortURL.MatchString(pattern)
+}
+
+// Import imports short URLs.
+func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, error) {
+	var result []ChangeResult
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	u, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	n := len(links)
+	if n > c.Settings.MaxPack {
+		return nil, fmt.Errorf("too big pack size [%v]", n)
+	}
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = db.LockURL(s)
+	if err != nil {
+		return nil, err
+	}
+	defer db.UnlockURL(s)
+	// prepare
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	for short, param := range links {
+		num, err := Decode(short)
+		if err != nil {
+			result = append(result, ChangeResult{Err: "invalid short URL value"})
+			continue
+		}
+		cu := &CustomURL{
+			ID:        num,
+			Group:     param.Group,
+			Tag:       param.Tag,
+			Original:  param.Original,
+			User:      u.Name,
+			TTL:       param.TTL,
+			NotDirect: param.NotDirect,
+			Created:   now,
+			Modified:  now,
+			Cb:        param.Cb,
+		}
+		err = coll.Insert(cu)
+		if err != nil {
+			msg := "internal error"
+			if mgo.IsDup(err) {
+				msg = "duplicate item"
+			}
+			result = append(result, ChangeResult{Err: msg})
+			continue
+		}
+		result = append(result, ChangeResult{Cu: cu})
+	}
+	return result, nil
 }

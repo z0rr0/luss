@@ -55,6 +55,7 @@ type addResponseItem struct {
 	ID       string `json:"id"`
 	Original string `json:"url"`
 	Short    string `json:"short"`
+	Err      string `json:"error"`
 }
 
 // addResponse is a response for add request.
@@ -113,6 +114,25 @@ type infoResponse struct {
 	Err    int                `json:"errcode"`
 	Msg    string             `json:"msg"`
 	Result []infoResponseItem `json:"result"`
+}
+
+// importRequestItem is a data item of import request.
+type importRequestItem struct {
+	Original string `json:"url"`
+	Short    string `json:"short"`
+}
+
+// importResponseItem is a result item in import response.
+type importResponseItem struct {
+	Short string `json:"short"`
+	Err   string `json:"error"`
+}
+
+// importResponse is a response for import request.
+type importResponse struct {
+	Err    int                  `json:"errcode"`
+	Msg    string               `json:"msg"`
+	Result []importResponseItem `json:"result"`
 }
 
 // HandlerError returns JSON API response about the error.
@@ -249,11 +269,15 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	}
 	items := make([]addResponseItem, len(cus))
 	for i, cu := range cus {
-		id := cu.String()
-		items[i] = addResponseItem{
-			ID:       id,
-			Short:    c.Address(id),
-			Original: cu.Original,
+		if cu.Err != "" {
+			items[i] = addResponseItem{Err: cu.Err}
+		} else {
+			id := cu.Cu.String()
+			items[i] = addResponseItem{
+				ID:       id,
+				Short:    c.Address(id),
+				Original: cu.Cu.Original,
+			}
 		}
 	}
 	result := &addResponse{
@@ -468,6 +492,76 @@ func HandlerInfo(ctx context.Context, w http.ResponseWriter, r *http.Request) co
 				PackSize: c.Settings.MaxPack,
 			},
 		},
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerImport imports predefined short URLs.
+func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	var imprs []importRequestItem
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	user, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	if !user.HasRole("admin") {
+		return core.ErrHandler{Err: errors.New("permissions error"), Status: http.StatusForbidden}
+	}
+	defer r.Body.Close()
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&imprs)
+	if (err != nil) && (err != io.EOF) {
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+	}
+	n := len(imprs)
+	if n == 0 {
+		if err := HandlerError(w, http.StatusOK); err != nil {
+			c.L.Error.Println(err)
+		}
+		c.L.Debug.Println("empty request")
+		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+	}
+	links := make(map[string]*trim.ReqParams, n)
+	for _, impr := range imprs {
+		params := &trim.ReqParams{
+			Original:  impr.Original,
+			Tag:       "",
+			NotDirect: false,
+			TTL:       nil,
+			Group:     "",
+			Cb:        trim.CallBack{},
+		}
+		err = params.Valid()
+		if err != nil {
+			return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+		}
+		links[impr.Short] = params
+	}
+	cus, err := trim.Import(ctx, links)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	items := make([]importResponseItem, len(cus))
+	for i, cu := range cus {
+		if cu.Err != "" {
+			items[i] = importResponseItem{Err: cu.Err}
+		} else {
+			items[i] = importResponseItem{Short: c.Address(cu.Cu.String())}
+		}
+	}
+	result := &importResponse{
+		Err:    0,
+		Msg:    "ok",
+		Result: items,
 	}
 	b, err := json.Marshal(result)
 	if err != nil {
