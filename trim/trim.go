@@ -70,6 +70,14 @@ type CustomURL struct {
 	Cb        CallBack   `bson:"cb"`
 }
 
+// Filter is a data filter to export URLs info.
+type Filter struct {
+	Group  string
+	Tag    string
+	Period [2]*time.Time
+	Active bool
+}
+
 // ReqParams is request parameters required for new
 // short URL creation.
 type ReqParams struct {
@@ -218,10 +226,7 @@ func Decode(x string) (int64, error) {
 
 // MultiLengthen returns short URLs info for slice of links.
 func MultiLengthen(ctx context.Context, links []string) ([]ChangeResult, error) {
-	var (
-		cus    []*CustomURL
-		result []ChangeResult
-	)
+	var result []ChangeResult
 	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -239,22 +244,24 @@ func MultiLengthen(ctx context.Context, links []string) ([]ChangeResult, error) 
 	if err != nil {
 		return nil, err
 	}
-	ids := []int64{}
 	for _, link := range links {
 		id, err := Decode(link)
 		if err != nil {
 			logger.Printf("decode error [%v]: %v", link, err)
-			result = append(result, ChangeResult{Err: "invalid value"})
+			result = append(result, ChangeResult{Cu: &CustomURL{ID: id}, Err: "invalid value"})
 			continue
 		}
-		ids = append(ids, id)
-	}
-	err = coll.Find(bson.M{"_id": bson.M{"$in": ids}}).All(&cus)
-	if err != nil {
-		return nil, err
-	}
-	for i := range cus {
-		result = append(result, ChangeResult{Cu: cus[i]})
+		cu := &CustomURL{}
+		err = coll.FindId(id).One(cu)
+		if err != nil {
+			msg := "internal error"
+			if err == mgo.ErrNotFound {
+				msg = "not found"
+			}
+			result = append(result, ChangeResult{Cu: &CustomURL{ID: id}, Err: msg})
+			continue
+		}
+		result = append(result, ChangeResult{Cu: cu})
 	}
 	return result, nil
 }
@@ -422,6 +429,39 @@ func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, e
 			continue
 		}
 		result = append(result, ChangeResult{Cu: cu})
+	}
+	return result, nil
+}
+
+// Export exports URLs data.
+func Export(ctx context.Context, filter Filter) ([]*CustomURL, error) {
+	var result []*CustomURL
+	s, err := db.CtxSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return nil, err
+	}
+	conditions := bson.M{"group": filter.Group, "tag": filter.Tag}
+	if filter.Active {
+		conditions["off"] = false
+	}
+	switch {
+	case filter.Period[0] != nil && filter.Period[1] != nil:
+		conditions["$and"] = []bson.M{
+			bson.M{"ts": bson.M{"$gte": *filter.Period[0]}},
+			bson.M{"ts": bson.M{"$lte": *filter.Period[1]}},
+		}
+	case filter.Period[0] != nil:
+		conditions["ts"] = bson.M{"$gte": *filter.Period[0]}
+	case filter.Period[1] != nil:
+		conditions["ts"] = bson.M{"$lte": *filter.Period[1]}
+	}
+	err = coll.Find(conditions).All(&result)
+	if err != nil {
+		return nil, err
 	}
 	return result, nil
 }

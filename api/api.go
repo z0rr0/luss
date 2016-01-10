@@ -135,6 +135,47 @@ type importResponse struct {
 	Result []importResponseItem `json:"result"`
 }
 
+// exportRequestItem is a data item of export request.
+type exportRequestItem struct {
+	Group  string    `json:"group"`
+	Tag    string    `json:"tag"`
+	Active bool      `json:"active"`
+	Period [2]string `json:"period"`
+}
+
+// exportResponseItem is a result item in export response.
+type exportResponseItem struct {
+	ID       string `json:"id"`
+	Short    string `json:"short"`
+	Original string `json:"url"`
+	Group    string `json:"group"`
+	Tag      string `json:"tag"`
+	Created  string `json:"created"`
+}
+
+// exportResponse is a response for export request.
+type exportResponse struct {
+	Err    int                  `json:"errcode"`
+	Msg    string               `json:"msg"`
+	Result []exportResponseItem `json:"result"`
+}
+
+// parsePeriod parses period string dates.
+func (e *exportRequestItem) parsePeriod() ([2]*time.Time, error) {
+	const layout = "2006-01-02"
+	var result [2]*time.Time
+	for i, v := range e.Period {
+		if v != "" {
+			t, err := time.Parse(layout, v)
+			if err != nil {
+				return result, err
+			}
+			result[i] = &t
+		}
+	}
+	return result, nil
+}
+
 // HandlerError returns JSON API response about the error.
 func HandlerError(w http.ResponseWriter, code int) error {
 	resp := shortResponse{Err: code, Msg: http.StatusText(code), Result: []bool{}}
@@ -269,15 +310,12 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	}
 	items := make([]addResponseItem, len(cus))
 	for i, cu := range cus {
-		if cu.Err != "" {
-			items[i] = addResponseItem{Err: cu.Err}
-		} else {
-			id := cu.Cu.String()
-			items[i] = addResponseItem{
-				ID:       id,
-				Short:    c.Address(id),
-				Original: cu.Cu.Original,
-			}
+		id := cu.Cu.String()
+		items[i] = addResponseItem{
+			ID:       id,
+			Short:    c.Address(id),
+			Original: cu.Cu.Original,
+			Err:      cu.Err,
 		}
 	}
 	result := &addResponse{
@@ -559,6 +597,68 @@ func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	result := &importResponse{
+		Err:    0,
+		Msg:    "ok",
+		Result: items,
+	}
+	b, err := json.Marshal(result)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, "%s", b)
+	return core.ErrHandler{Err: nil, Status: http.StatusOK}
+}
+
+// HandlerExport exports URLs data.
+func HandlerExport(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
+	const layout = "2006-01-02"
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	user, err := auth.ExtractUser(ctx)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	if !user.HasRole("admin") {
+		return core.ErrHandler{Err: errors.New("permissions error"), Status: http.StatusForbidden}
+	}
+	defer r.Body.Close()
+
+	exp := &exportRequestItem{}
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(exp)
+	if (err != nil) && (err != io.EOF) {
+		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
+	}
+	period, err := exp.parsePeriod()
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	filter := trim.Filter{
+		Group:  exp.Group,
+		Tag:    exp.Tag,
+		Period: period,
+		Active: exp.Active,
+	}
+	cus, err := trim.Export(ctx, filter)
+	if err != nil {
+		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
+	}
+	items := make([]exportResponseItem, len(cus))
+	for i, cu := range cus {
+		id := cu.String()
+		items[i] = exportResponseItem{
+			ID:       id,
+			Short:    c.Address(id),
+			Original: cu.Original,
+			Group:    cu.Group,
+			Tag:      cu.Tag,
+			Created:  cu.Created.UTC().Format(layout),
+		}
+	}
+	result := &exportResponse{
 		Err:    0,
 		Msg:    "ok",
 		Result: items,

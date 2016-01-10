@@ -126,8 +126,8 @@ func main() {
 		"/api/user/add":  Handler{F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
 		"/api/user/pwd":  Handler{F: api.HandlerPwd, Auth: true, API: true, Method: "POST"},
 		"/api/user/del":  Handler{F: api.HandlerUserDel, Auth: true, API: true, Method: "POST"},
-		// "/api/import": Handler{F: api.HandlerImport, Auth: true, API: true, Method: "POST"},
-		// "/api/export": Handler{F: api.HandlerImport, Auth: true, API: true, Method: "GET"},
+		"/api/import":    Handler{F: api.HandlerImport, Auth: true, API: true, Method: "POST"},
+		"/api/export":    Handler{F: api.HandlerExport, Auth: true, API: true, Method: "POST"},
 		// "/api/stats"
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -24,6 +24,11 @@ Not needed any data.
 }
 ```
 
+```sh
+// example
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" http://<CUSTOM_DOMAIN>/api/info
+```
+
 **JSON POST /api/add** - add new short links
 
 ```js
@@ -56,7 +61,9 @@ Not needed any data.
     }
   ]
 }
+```
 
+```sh
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"url": "http://domain", "tag": "", "group": "", "ttl": null, "nd": false, "cb": {"url": "", "method": "", "name": "", "value": ""}}]' http://<CUSTOM_DOMAIN>/api/add
 ```
@@ -84,9 +91,11 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+```
 
+```sh
 // example
-curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/P"}, {"short": "http://<CUSTOM_DOMAIN>/O"}]' http://<CUSTOM_DOMAIN>/api/get
+curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/Pr"}, {"short": "http://<CUSTOM_DOMAIN>/Hw"}]' http://<CUSTOM_DOMAIN>/api/get
 ```
 
 **JSON POST /api/user/add** - creates new user, only user with "admin" role has permissions for this request.
@@ -111,7 +120,9 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+```
 
+```sh
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/add
 ```
@@ -138,7 +149,9 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+```
 
+```sh
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/pwd
 ```
@@ -164,7 +177,9 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+```
 
+```sh
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/del
 ```
@@ -191,4 +206,46 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
     }
   ]
 }
+
+```
+
+```sh
+// example
+curl -v -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"url": "http://some_url.com", "short": "ab"}]' http://<CUSTOM_DOMAIN>/api/import
+
+```
+
+**JSON POST /api/export** - export URLs data (only for admin)
+
+```js
+// request
+{
+  "group": "some_group",
+  "tag": "some_tag",
+  "period": ["2015-01-01", "2015-12-31"],
+  "active": true
+}
+
+// response
+{
+  "errcode": 0,
+  "msg": "ok",
+  result: [
+    {
+      "id": "short_url",
+      "short": "http://short_url.com",
+      "url": "http://some_url.com",
+      "group": "some_group",
+      "tag": "some_tag",
+      "created": "2015-06-30",
+    }
+  ]
+}
+
+```
+
+```sh
+// example
+curl -v -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"group": "", "tag": "", "period": ["2015-01-01", ""], "active": true}]' http://<CUSTOM_DOMAIN>/api/export
+
 ```
