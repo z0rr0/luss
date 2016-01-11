@@ -2,6 +2,16 @@
 
 User's token should be sent inside header **Authorization** with a prefix **Bearer**. If the token is not presented then request will be handled as anonymous one.
 
+The response after error:
+
+```js
+{
+  "errcode": 404,         // error code
+  "msg": "error message", // error description
+  "result": []            // empty result array
+}
+```
+
 JSON array size has a limit, it is **maxpack** from the configuration file.
 
 **JSON GET /api/info** - get main service info
@@ -223,14 +233,16 @@ curl -v -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X
   "group": "some_group",
   "tag": "some_tag",
   "period": ["2015-01-01", "2015-12-31"],
-  "active": true
+  "active": true,
+  "page": 1
 }
 
 // response
 {
   "errcode": 0,
   "msg": "ok",
-  result: [
+  "pages": [1, 10, 100], // current, total, page_size
+  "result": [
     {
       "id": "short_url",
       "short": "http://short_url.com",

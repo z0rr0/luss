@@ -72,10 +72,12 @@ type CustomURL struct {
 
 // Filter is a data filter to export URLs info.
 type Filter struct {
-	Group  string
-	Tag    string
-	Period [2]*time.Time
-	Active bool
+	Group    string
+	Tag      string
+	Period   [2]*time.Time
+	Active   bool
+	Page     int
+	PageSize int
 }
 
 // ReqParams is request parameters required for new
@@ -438,15 +440,16 @@ func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, e
 }
 
 // Export exports URLs data.
-func Export(ctx context.Context, filter Filter) ([]*CustomURL, error) {
+func Export(ctx context.Context, filter Filter) ([]*CustomURL, [3]int, error) {
 	var result []*CustomURL
+	pages := [3]int{1, 1, filter.PageSize}
 	s, err := db.CtxSession(ctx)
 	if err != nil {
-		return nil, err
+		return nil, pages, err
 	}
 	coll, err := db.Coll(s, "urls")
 	if err != nil {
-		return nil, err
+		return nil, pages, err
 	}
 	conditions := bson.M{"group": filter.Group, "tag": filter.Tag}
 	if filter.Active {
@@ -464,9 +467,27 @@ func Export(ctx context.Context, filter Filter) ([]*CustomURL, error) {
 		conditions["ts"] = bson.M{"$lte": *filter.Period[1]}
 	}
 	// TODO: add skip+limit
-	err = coll.Find(conditions).All(&result)
+	n, err := coll.Find(conditions).Count()
 	if err != nil {
-		return nil, err
+		return nil, pages, err
 	}
-	return result, nil
+	if n == 0 {
+		return result, pages, nil
+	}
+	pages[0] = filter.Page
+	pages[1] = n / pages[2]
+	if n%pages[2] != 0 {
+		pages[1]++
+	}
+	switch {
+	case pages[0] < 1:
+		pages[0] = 1
+	case pages[0] > pages[1]:
+		pages[0] = pages[1]
+	}
+	err = coll.Find(conditions).Skip((pages[0] - 1) * pages[2]).Limit(pages[2]).Sort("-id").All(&result)
+	if err != nil {
+		return nil, pages, err
+	}
+	return result, pages, nil
 }

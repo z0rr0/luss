@@ -135,12 +135,13 @@ type importResponse struct {
 	Result []importResponseItem `json:"result"`
 }
 
-// exportRequestItem is a data item of export request.
-type exportRequestItem struct {
+// exportRequest is a data item of export request.
+type exportRequest struct {
 	Group  string    `json:"group"`
 	Tag    string    `json:"tag"`
 	Active bool      `json:"active"`
 	Period [2]string `json:"period"`
+	Page   int       `json:"page"`
 }
 
 // exportResponseItem is a result item in export response.
@@ -157,11 +158,12 @@ type exportResponseItem struct {
 type exportResponse struct {
 	Err    int                  `json:"errcode"`
 	Msg    string               `json:"msg"`
+	Pages  [3]int               `json:"pages"`
 	Result []exportResponseItem `json:"result"`
 }
 
 // parsePeriod parses period string dates.
-func (e *exportRequestItem) parsePeriod() ([2]*time.Time, error) {
+func (e *exportRequest) parsePeriod() ([2]*time.Time, error) {
 	const layout = "2006-01-02"
 	var result [2]*time.Time
 	for i, v := range e.Period {
@@ -612,7 +614,10 @@ func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 // HandlerExport exports URLs data.
 func HandlerExport(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
-	const layout = "2006-01-02"
+	const (
+		layout   = "2006-01-02"
+		pageSize = 1000
+	)
 	c, err := conf.FromContext(ctx)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
@@ -626,7 +631,7 @@ func HandlerExport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	defer r.Body.Close()
 
-	exp := &exportRequestItem{}
+	exp := &exportRequest{}
 	decoder := json.NewDecoder(r.Body)
 	err = decoder.Decode(exp)
 	if (err != nil) && (err != io.EOF) {
@@ -637,12 +642,14 @@ func HandlerExport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
 	filter := trim.Filter{
-		Group:  exp.Group,
-		Tag:    exp.Tag,
-		Period: period,
-		Active: exp.Active,
+		Group:    exp.Group,
+		Tag:      exp.Tag,
+		Period:   period,
+		Active:   exp.Active,
+		Page:     exp.Page,
+		PageSize: pageSize,
 	}
-	cus, err := trim.Export(ctx, filter)
+	cus, pages, err := trim.Export(ctx, filter)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
 	}
@@ -661,6 +668,7 @@ func HandlerExport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	result := &exportResponse{
 		Err:    0,
 		Msg:    "ok",
+		Pages:  pages,
 		Result: items,
 	}
 	b, err := json.Marshal(result)
