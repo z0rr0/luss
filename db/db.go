@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	maxLockAttempts     = 8
+	maxLockAttempts     = 10
 	lockKey             = 1
 	sessionKey      key = 0
 )

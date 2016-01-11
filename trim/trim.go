@@ -235,11 +235,10 @@ func MultiLengthen(ctx context.Context, links []string) ([]ChangeResult, error) 
 	if n > c.Settings.MaxPack {
 		return nil, fmt.Errorf("too big pack size [%v]", n)
 	}
-	s, err := db.NewSession(c.Conn, false)
+	s, err := db.CtxSession(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer s.Close()
 	coll, err := db.Coll(s, "urls")
 	if err != nil {
 		return nil, err
@@ -324,21 +323,21 @@ func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.LockURL(s)
-	if err != nil {
-		return nil, err
-	}
-	defer db.UnlockURL(s)
 	// prepare
 	coll, err := db.Coll(s, "urls")
 	if err != nil {
 		return nil, err
 	}
+	now := time.Now().UTC()
+	err = db.LockURL(s)
+	if err != nil {
+		return nil, err
+	}
+	defer db.UnlockURL(s)
 	num, err := getMax(coll)
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
 	documents := make([]interface{}, n)
 	cus := make([]*CustomURL, n)
 	for i, param := range params {
@@ -390,11 +389,6 @@ func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, e
 	if err != nil {
 		return nil, err
 	}
-	err = db.LockURL(s)
-	if err != nil {
-		return nil, err
-	}
-	defer db.UnlockURL(s)
 	// prepare
 	coll, err := db.Coll(s, "urls")
 	if err != nil {
@@ -419,10 +413,20 @@ func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, e
 			Modified:  now,
 			Cb:        param.Cb,
 		}
-		err = coll.Insert(cu)
+		// a locking of every insert is not fast
+		// but the pack doesn't lock other operations.
+		err = db.LockURL(s)
 		if err != nil {
+			return nil, err
+		}
+		errIns := coll.Insert(cu)
+		err = db.UnlockURL(s)
+		if err != nil {
+			return nil, err
+		}
+		if errIns != nil {
 			msg := "internal error"
-			if mgo.IsDup(err) {
+			if mgo.IsDup(errIns) {
 				msg = "duplicate item"
 			}
 			result = append(result, ChangeResult{Err: msg})
@@ -459,6 +463,7 @@ func Export(ctx context.Context, filter Filter) ([]*CustomURL, error) {
 	case filter.Period[1] != nil:
 		conditions["ts"] = bson.M{"$lte": *filter.Period[1]}
 	}
+	// TODO: add skip+limit
 	err = coll.Find(conditions).All(&result)
 	if err != nil {
 		return nil, err
