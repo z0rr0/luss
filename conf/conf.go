@@ -137,6 +137,29 @@ type Config struct {
 	L        Logger
 }
 
+// downloadGeoIPDB downloads MM Geo IP database.
+func downloadGeoIPDB(name string) (int64, error) {
+	out, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return 0, err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(mmDB)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	in, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	defer in.Close()
+
+	return io.Copy(out, in)
+}
+
 // Close closes main database connection.
 func (c *Conn) Close() {
 	c.M.Lock()
@@ -188,26 +211,8 @@ func (c *Config) checkGeoIPDB() error {
 		return err
 	}
 	if _, err := os.Stat(fullpath); err != nil {
-		logger.Println("GeoDB file is not found, a trying to download it...")
-		out, err := os.OpenFile(fullpath, os.O_WRONLY|os.O_CREATE, 0644)
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-
-		resp, err := http.Get(mmDB)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-
-		in, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-
-		n, err := io.Copy(out, in)
+		logger.Println("GeoDB file is not found, downloading...")
+		n, err := downloadGeoIPDB(fullpath)
 		if err != nil {
 			return err
 		}
