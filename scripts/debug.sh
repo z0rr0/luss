@@ -50,7 +50,7 @@ cp -f $CONFIG $TESTCONFIG
 # update TESTCONFIG path only for windows platform
 cfgname
 # download geoip database
-getgeo
+# getgeo
 
 cd $REPO
 exec ${LOCALGOPATH}/bin/luss -config $TESTCONFIG

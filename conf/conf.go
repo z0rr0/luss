@@ -6,12 +6,15 @@
 package conf
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +32,11 @@ const (
 	saltLent = 16
 	// configKey is internal context key
 	configKey key = 0
+)
+
+var (
+	// logger is a logger for error messages
+	logger = log.New(os.Stderr, "LOGGER [conf]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // key is internal type to get Config value from context.
@@ -173,9 +181,36 @@ func (c *Config) checkTemplates() error {
 
 // checkGeoIPDB validates Geo IP database file path.
 func (c *Config) checkGeoIPDB() error {
+	const mmdb = "http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz"
 	fullpath, err := filepath.Abs(c.Settings.GeoIPDB)
 	if err != nil {
 		return err
+	}
+	if _, err := os.Stat(fullpath); err != nil {
+		logger.Println("GeoDB file is not found, a trying to download it...")
+		out, err := os.OpenFile(fullpath, os.O_WRONLY|os.O_CREATE, 0644)
+		if err != nil {
+			return err
+		}
+		defer out.Close()
+
+		resp, err := http.Get(mmdb)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		in, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+
+		n, err := io.Copy(out, in)
+		if err != nil {
+			return err
+		}
+		logger.Printf("GeoDB file is downloaded (size %v)\n", n)
 	}
 	db, err := geoip2.Open(fullpath)
 	if err != nil {
