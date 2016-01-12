@@ -32,6 +32,8 @@ const (
 	saltLent = 16
 	// configKey is internal context key
 	configKey key = 0
+	// mmDB is geo IP database URL.
+	mmDB = "http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz"
 )
 
 var (
@@ -181,7 +183,6 @@ func (c *Config) checkTemplates() error {
 
 // checkGeoIPDB validates Geo IP database file path.
 func (c *Config) checkGeoIPDB() error {
-	const mmdb = "http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.mmdb.gz"
 	fullpath, err := filepath.Abs(c.Settings.GeoIPDB)
 	if err != nil {
 		return err
@@ -194,7 +195,7 @@ func (c *Config) checkGeoIPDB() error {
 		}
 		defer out.Close()
 
-		resp, err := http.Get(mmdb)
+		resp, err := http.Get(mmDB)
 		if err != nil {
 			return err
 		}
