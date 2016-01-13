@@ -69,6 +69,10 @@ func tracker(ch <-chan *CuInfo) {
 			logger.Printf("tracker wasn't called, error: %v", err)
 			continue
 		}
+		if !c.Settings.TrackOn {
+			c.L.Debug.Println("request tracking is disabled")
+			continue
+		}
 		wg.Add(2)
 		// tracker handler
 		go func() {

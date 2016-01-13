@@ -16,6 +16,7 @@
     }
   },
   "settings": {                   // settings:
+    "trackon": false,              //   turn on request tracking
     "maxspam": 5,                 //   max spam percents
     "cleanup": 90,                //   links TTL clean up timeout (seconds)
     "cballow": true,              //   allow callback responses

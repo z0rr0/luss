@@ -201,7 +201,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 [
   {
     "url": "http://some_url.com",
-    "short": "http://short_url.com"
+    "short": "short_url"
   }
 ]
 
@@ -211,7 +211,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
   "msg": "ok",
   result: [
     {
-      "short": "http://short_url.com",
+      "short": "short_url",
       "error": ""
     }
   ]

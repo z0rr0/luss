@@ -17,6 +17,7 @@
   "spam": 0.5,                      // smap coefficient
   "ts": ISODate()                   // date of creation
   "mod": ISODate()                  // date of modification
+  "api": false,                     // created using API
   "cb": {                           // callback settings
     "u": "https://domain.com/",     //   callback URL
     "m": "GET",                     //   callback method

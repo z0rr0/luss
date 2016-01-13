@@ -221,6 +221,7 @@ func validateAddParams(r *http.Request) ([]*trim.ReqParams, error) {
 			NotDirect: ar.NotDirect,
 			TTL:       ttl,
 			Group:     ar.Group,
+			IsAPI:     true,
 			Cb: trim.CallBack{
 				URL:    ar.Cb.URL,
 				Method: ar.Cb.Method,
@@ -576,6 +577,7 @@ func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 			Original:  impr.Original,
 			Tag:       "",
 			NotDirect: false,
+			IsAPI:     true,
 			TTL:       nil,
 			Group:     "",
 			Cb:        trim.CallBack{},
@@ -595,7 +597,7 @@ func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		if cu.Err != "" {
 			items[i] = importResponseItem{Err: cu.Err}
 		} else {
-			items[i] = importResponseItem{Short: c.Address(cu.Cu.String())}
+			items[i] = importResponseItem{Short: cu.Cu.String()}
 		}
 	}
 	result := &importResponse{

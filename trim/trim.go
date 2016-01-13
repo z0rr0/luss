@@ -68,6 +68,7 @@ type CustomURL struct {
 	Created   time.Time  `bson:"ts"`
 	Modified  time.Time  `bson:"mod"`
 	Cb        CallBack   `bson:"cb"`
+	API       bool       `bson:"api"`
 }
 
 // Filter is a data filter to export URLs info.
@@ -87,6 +88,7 @@ type ReqParams struct {
 	Tag       string
 	Group     string
 	NotDirect bool
+	IsAPI     bool
 	TTL       *time.Time
 	Cb        CallBack
 }
@@ -355,6 +357,7 @@ func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 			Created:   now,
 			Modified:  now,
 			Cb:        param.Cb,
+			API:       param.IsAPI,
 		}
 		documents[i] = cus[i]
 	}
@@ -414,6 +417,7 @@ func Import(ctx context.Context, links map[string]*ReqParams) ([]ChangeResult, e
 			Created:   now,
 			Modified:  now,
 			Cb:        param.Cb,
+			API:       param.IsAPI,
 		}
 		// a locking of every insert is not fast
 		// but the pack doesn't lock other operations.
