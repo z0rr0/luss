@@ -25,20 +25,23 @@ BUILD="$REPO/scripts/build.sh"
 ONLYTEST=""
 
 PACKAGES_TEST=( \
-"test" \
+# "api" \
+# "auth" \
 "conf" \
-"db" \
-"trim" \
-"auth" \
+# "core" \
+# "db" \
+# "test" \
+# "trim" \
 )
 
 PACKAGES_CHECK=( \
-"test" \
-"conf" \
-"db" \
-"trim" \
-"auth" \
 "api" \
+"auth" \
+"conf" \
+"core" \
+"db" \
+"test" \
+"trim" \
 )
 
 if [ -z "$GOPATH" ]; then

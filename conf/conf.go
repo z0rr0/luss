@@ -172,8 +172,12 @@ func (c *Conn) Close() {
 
 // Close releases configuration resources.
 func (c *Config) Close() {
-	c.Conn.Close()
-	c.GeoDB.Close()
+	if c.Conn != nil {
+		c.Conn.Close()
+	}
+	if c.GeoDB != nil {
+		c.GeoDB.Close()
+	}
 }
 
 // Address returns a full URL address.

@@ -134,6 +134,7 @@ func TestNewContext(t *testing.T) {
 	if cfg == nil {
 		t.Errorf("incorrect behavior")
 	}
+	defer cfg.Close()
 	ctx := NewContext(cfg)
 	if cfg2, err := FromContext(ctx); err != nil || cfg2 != cfg {
 		t.Errorf("incorrect behavior")
