@@ -96,6 +96,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+	go core.CleanWorker(mainCtx)
 	errc := make(chan error)
 	go func() {
 		errc <- interrupt()

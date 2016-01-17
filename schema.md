@@ -27,7 +27,7 @@
 }
 
 db.urls.ensureIndex({"group": 1, "off": 1, "u": 1})
-db.urls.ensureIndex({"ttl": 1, "off": 1})
+db.urls.ensureIndex({"off": 1, "ttl": 1})
 db.urls.ensureIndex({"group": 1, "tag": 1, "ts": 1, "off": 1})
 ```
 

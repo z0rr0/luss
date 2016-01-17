@@ -298,7 +298,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 		return nil, err
 	}
 	cu := &CustomURL{}
-	err = coll.Find(bson.M{"_id": num, "off": false}).One(cu)
+	err = coll.Find(bson.D{{"_id", num}, {"off", false}}).One(cu)
 	if err != nil {
 		return nil, err
 	}

@@ -120,6 +120,62 @@ func TrackerChan(ctx context.Context) (chan *CuInfo, error) {
 	return p, nil
 }
 
+// clean disables expired short URLs.
+func clean(c *conf.Config) error {
+	var change int
+	s, err := db.NewSession(c.Conn, false)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	coll, err := db.Coll(s, "urls")
+	if err != nil {
+		return err
+	}
+	condition := bson.D{
+		{"off", false},
+		{"ttl", bson.M{"$lt": time.Now().UTC()}},
+	}
+	update := bson.M{"$set": bson.M{"off": true}}
+	cache, cacheOn := c.Cache.Strorage["URL"]
+	if cacheOn {
+		cu := &trim.CustomURL{}
+		iter := coll.Find(condition).Iter()
+		for iter.Next(cu) {
+			if err := coll.UpdateId(cu.ID, update); err == nil {
+				cache.Remove(cu.String())
+				change++
+			}
+		}
+		err = iter.Close()
+		if err != nil {
+			return err
+		}
+	} else {
+		// cache is disable, update only URLs
+		info, err := coll.UpdateAll(condition, update)
+		if err != nil {
+			return err
+		}
+		change = info.Updated
+	}
+	c.L.Debug.Printf("cleaned %v item(s)", change)
+	return nil
+}
+
+// CleanWorker deactivates expired short URLs periodically every 5 minutes.
+func CleanWorker(ctx context.Context) {
+	var err error
+	c, _ := conf.FromContext(ctx)
+	tick := time.Tick(time.Duration(1 * time.Minute))
+	for range tick {
+		err = clean(c)
+		if err != nil {
+			c.L.Error.Printf("clean error: %v", err)
+		}
+	}
+}
+
 // validateParams checks HTTP parameters.
 func validateParams(r *http.Request) (*trim.ReqParams, error) {
 	var (
