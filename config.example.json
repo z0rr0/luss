@@ -18,7 +18,7 @@
   "settings": {                   // settings:
     "trackon": true,              //   turn on request tracking
     "maxspam": 5,                 //   max spam percents
-    "cleanup": 90,                //   links TTL clean up timeout (seconds)
+    "cleanup": 30,                //   links TTL clean up timeout (seconds)
     "cballow": true,              //   allow callback responses
     "cbnum": 2,                   //   number of callbacks goroutines
     "cbbuf": 1,                   //   channel buffer of callbacks goroutines (less than numcb)

@@ -164,13 +164,10 @@ func clean(c *conf.Config) error {
 }
 
 // CleanWorker deactivates expired short URLs periodically every 5 minutes.
-func CleanWorker(ctx context.Context) {
-	var err error
-	c, _ := conf.FromContext(ctx)
-	tick := time.Tick(time.Duration(5 * time.Minute))
+func CleanWorker(c *conf.Config) {
+	tick := time.Tick(time.Duration(c.Settings.CleanMin) * time.Second)
 	for range tick {
-		err = clean(c)
-		if err != nil {
+		if err := clean(c); err != nil {
 			c.L.Error.Printf("clean error: %v", err)
 		}
 	}
