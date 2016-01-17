@@ -167,7 +167,7 @@ func clean(c *conf.Config) error {
 func CleanWorker(ctx context.Context) {
 	var err error
 	c, _ := conf.FromContext(ctx)
-	tick := time.Tick(time.Duration(1 * time.Minute))
+	tick := time.Tick(time.Duration(5 * time.Minute))
 	for range tick {
 		err = clean(c)
 		if err != nil {
