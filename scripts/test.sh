@@ -27,8 +27,8 @@ ONLYTEST=""
 PACKAGES_TEST=( \
 # "api" \
 # "auth" \
-# "conf" \
-"core" \
+"conf" \
+# "core" \
 # "db" \
 # "test" \
 # "trim" \

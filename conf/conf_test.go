@@ -117,6 +117,34 @@ func TestParseConfig(t *testing.T) {
 	}
 	cfg.Settings.MaxPack = oldMaxPack
 
+	oldMaxReqSize := cfg.Settings.MaxReqSize
+	cfg.Settings.MaxReqSize = 0
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("incorrect behavior")
+	}
+	cfg.Settings.MaxReqSize = oldMaxReqSize
+
+	oldTrackers := cfg.Settings.Trackers
+	cfg.Settings.Trackers = 0
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("incorrect behavior")
+	}
+	cfg.Settings.Trackers = oldTrackers
+
+	oldCacheURLs := cfg.Cache.URLs
+	cfg.Cache.URLs = -1
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("incorrect behavior")
+	}
+	cfg.Cache.URLs = oldCacheURLs
+
+	oldCacheTemplates := cfg.Cache.Templates
+	cfg.Cache.Templates = -1
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("incorrect behavior")
+	}
+	cfg.Cache.Templates = oldCacheTemplates
+
 	cfg, err = Parse(name)
 	if err != nil {
 		t.Fatal("incorrect behavior")
