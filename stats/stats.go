@@ -89,7 +89,6 @@ func Callback(ctx context.Context, cu *trim.CustomURL) error {
 func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	c, err := conf.FromContext(ctx)
 	if err != nil {
-		logger.Println(err)
 		return err
 	}
 	host, _, err := net.SplitHostPort(addr)
@@ -99,6 +98,7 @@ func Tracker(ctx context.Context, cu *trim.CustomURL, addr string) error {
 	geo := GeoData{IP: host}
 	record, err := c.GeoDB.City(net.ParseIP(host))
 	if err != nil {
+		// not critical: skip GeoIP data filling
 		c.L.Error.Println(err)
 	} else {
 		geo.Country = record.Country.Names["en"]

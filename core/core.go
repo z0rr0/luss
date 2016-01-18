@@ -253,7 +253,13 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 	}
 	ch, err := TrackerChan(ctx)
 	if err != nil {
-		logger.Println(err)
+		// tracker's error is not critical
+		// so it is only printed here
+		if c, errCfg := conf.FromContext(ctx); errCfg == nil {
+			c.L.Error.Println(err)
+		} else {
+			logger.Println(err, errCfg)
+		}
 	} else {
 		cui := &CuInfo{ctx, cu, r.RemoteAddr}
 		ch <- cui

@@ -145,7 +145,7 @@ func main() {
 				core.HandlerNotFound(ctx, w, r)
 			case code != http.StatusOK && !isAPI:
 				core.HandlerError(ctx, w, r)
-			case code >= 300:
+			case code != http.StatusOK:
 				if err := api.HandlerError(w, code); err != nil {
 					cfg.L.Error.Println(err)
 				}

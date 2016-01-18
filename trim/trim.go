@@ -250,7 +250,7 @@ func MultiLengthen(ctx context.Context, links []string) ([]ChangeResult, error) 
 	for _, link := range links {
 		id, err := Decode(link)
 		if err != nil {
-			logger.Printf("decode error [%v]: %v", link, err)
+			c.L.Error.Printf("decode error [%v]: %v", link, err)
 			result = append(result, ChangeResult{Cu: &CustomURL{ID: id}, Err: "invalid value"})
 			continue
 		}
@@ -363,7 +363,6 @@ func Shorten(ctx context.Context, params []*ReqParams) ([]*CustomURL, error) {
 	}
 	err = coll.Insert(documents...)
 	if err != nil {
-		c.L.Error.Println(err)
 		return nil, err
 	}
 	return cus, nil

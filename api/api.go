@@ -25,6 +25,11 @@ const (
 	Version = "0.0.1"
 )
 
+var (
+	// ErrEmptyRequest is error when there is no valid request data.
+	ErrEmptyRequest = errors.New("empty request")
+)
+
 // shortResponse is common HTTP response.
 type shortResponse struct {
 	Err    int    `json:"errcode"`
@@ -293,7 +298,7 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	for i := range grs {
 		link, err := core.TrimAddress(grs[i].Short)
 		if err != nil {
-			c.L.Error.Printf("invalid short url [%v]: %v", link, err)
+			c.L.Error.Printf("invalid short URL [%v] was skipped: %v", link, err)
 			continue
 		}
 		if l, ok := trim.IsShort(link); ok {
@@ -301,11 +306,7 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		}
 	}
 	if len(links) == 0 {
-		if err := HandlerError(w, http.StatusOK); err != nil {
-			c.L.Error.Println(err)
-		}
-		c.L.Debug.Println("empty request")
-		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+		return core.ErrHandler{Err: ErrEmptyRequest, Status: http.StatusNoContent}
 	}
 	cus, err := trim.MultiLengthen(ctx, links)
 	if err != nil {
@@ -338,10 +339,6 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 // HandlerUserAdd creates new user.
 func HandlerUserAdd(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
 	var uar []userAddRequest
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
-	}
 	user, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
@@ -356,11 +353,7 @@ func HandlerUserAdd(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
 	}
 	if len(uar) == 0 {
-		if err := HandlerError(w, http.StatusOK); err != nil {
-			c.L.Error.Println(err)
-		}
-		c.L.Debug.Println("empty request")
-		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+		return core.ErrHandler{Err: ErrEmptyRequest, Status: http.StatusNoContent}
 	}
 	names := make([]string, len(uar))
 	for i, v := range uar {
@@ -403,10 +396,6 @@ func HandlerUserAdd(ctx context.Context, w http.ResponseWriter, r *http.Request)
 // HandlerPwd updates user's token.
 func HandlerPwd(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
 	var uar []userAddRequest
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
-	}
 	user, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
@@ -421,11 +410,7 @@ func HandlerPwd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
 	}
 	if len(uar) == 0 {
-		if err := HandlerError(w, http.StatusOK); err != nil {
-			c.L.Error.Println(err)
-		}
-		c.L.Debug.Println("empty request")
-		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+		return core.ErrHandler{Err: ErrEmptyRequest, Status: http.StatusNoContent}
 	}
 	names := make([]string, len(uar))
 	for i, v := range uar {
@@ -460,10 +445,6 @@ func HandlerPwd(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 // HandlerUserDel disables user.
 func HandlerUserDel(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
 	var uar []userAddRequest
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
-	}
 	user, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
@@ -478,11 +459,7 @@ func HandlerUserDel(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		return core.ErrHandler{Err: err, Status: http.StatusBadRequest}
 	}
 	if len(uar) == 0 {
-		if err := HandlerError(w, http.StatusOK); err != nil {
-			c.L.Error.Println(err)
-		}
-		c.L.Debug.Println("empty request")
-		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+		return core.ErrHandler{Err: ErrEmptyRequest, Status: http.StatusNoContent}
 	}
 	names := make([]string, len(uar))
 	for i, v := range uar {
@@ -546,10 +523,6 @@ func HandlerInfo(ctx context.Context, w http.ResponseWriter, r *http.Request) co
 // HandlerImport imports predefined short URLs.
 func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) core.ErrHandler {
 	var imprs []importRequestItem
-	c, err := conf.FromContext(ctx)
-	if err != nil {
-		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
-	}
 	user, err := auth.ExtractUser(ctx)
 	if err != nil {
 		return core.ErrHandler{Err: err, Status: http.StatusInternalServerError}
@@ -565,11 +538,7 @@ func HandlerImport(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 	n := len(imprs)
 	if n == 0 {
-		if err := HandlerError(w, http.StatusOK); err != nil {
-			c.L.Error.Println(err)
-		}
-		c.L.Debug.Println("empty request")
-		return core.ErrHandler{Err: nil, Status: http.StatusOK}
+		return core.ErrHandler{Err: ErrEmptyRequest, Status: http.StatusNoContent}
 	}
 	links := make(map[string]*trim.ReqParams, n)
 	for _, impr := range imprs {
