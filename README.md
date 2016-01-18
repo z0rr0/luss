@@ -2,7 +2,9 @@
 
 **L**USS is a **U**RL **S**hortening **S**ervice.
 
-It is a tool to reduce URLs length. Short URL requests redirects a request to original one.
+It is a tool to reduce URLs length.
+
+How it works - the service saves a custom URL and returns its short alias that redirects all incoming requests to the original web page.
 
 Features:
 
@@ -11,12 +13,12 @@ Features:
 * can track redirection requests (using GeoIP info)
 * supports callbacks after redirections
 * supports TTL (time to live) for temporary links
-* support cache control
+* supports cache control
 * has RESTFull API: multi-items, users control
 
 ### API
 
-Please read **api.md** file.
+Please read **[api.md](api.md)** file.
 
 
 ### License
