@@ -254,7 +254,7 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 	ch, err := TrackerChan(ctx)
 	if err != nil {
 		// tracker's error is not critical
-		// so it is only printed here
+		// so only print it here
 		if c, errCfg := conf.FromContext(ctx); errCfg == nil {
 			c.L.Error.Println(err)
 		} else {

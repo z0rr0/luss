@@ -298,7 +298,7 @@ func HandlerGet(ctx context.Context, w http.ResponseWriter, r *http.Request) cor
 	for i := range grs {
 		link, err := core.TrimAddress(grs[i].Short)
 		if err != nil {
-			c.L.Error.Printf("invalid short URL [%v] was skipped: %v", link, err)
+			c.L.Debug.Printf("invalid short URL [%v] was skipped: %v", link, err)
 			continue
 		}
 		if l, ok := trim.IsShort(link); ok {
