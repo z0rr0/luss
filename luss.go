@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -68,7 +69,7 @@ func main() {
 	config := flag.String("config", Config, "configuration file")
 	flag.Parse()
 	if *version {
-		fmt.Printf("%v: %v\n\trevision: %v\n\tbuild date: %v\n", Name, Version, Revision, BuildDate)
+		fmt.Printf("%v: %v\n\trevision: %v %v\n\tbuild date: %v\n", Name, Version, Revision, runtime.Version(), BuildDate)
 		return
 	}
 	// configuration initialization
