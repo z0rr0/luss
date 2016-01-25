@@ -251,17 +251,22 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 	if err != nil {
 		return "", err
 	}
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		return "", err
+	}
 	ch, err := TrackerChan(ctx)
 	if err != nil {
 		// tracker's error is not critical
 		// so only print it here
-		if c, errCfg := conf.FromContext(ctx); errCfg == nil {
-			c.L.Error.Println(err)
-		} else {
-			logger.Println(err, errCfg)
-		}
+		c.L.Error.Println(err)
 	} else {
 		cui := &CuInfo{ctx, cu, r.RemoteAddr}
+		if headProxy := c.Settings.TrackProxy; headProxy != "" {
+			if proxyIP := r.Header.Get(headProxy); proxyIP != "" {
+				cui.addr = proxyIP
+			}
+		}
 		ch <- cui
 	}
 	// TODO: check direct redirect

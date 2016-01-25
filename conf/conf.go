@@ -89,6 +89,7 @@ type settings struct {
 	GeoIPDB    string `json:"geoipdb"`
 	MaxReqSize int64  `json:"maxreqsize"`
 	TrackOn    bool   `json:"trackon"`
+	TrackProxy string `json:"trackproxy"`
 }
 
 // MongoCfg is database configuration settings

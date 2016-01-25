@@ -121,13 +121,13 @@ func (rp *ReqParams) Valid() error {
 	if len(rp.Group) > lenLimit {
 		return errors.New("too long group name")
 	}
-	u, err := url.ParseRequestURI(rp.Original)
+	u, err := url.Parse(rp.Original)
 	if err != nil {
 		return err
 	}
 	rp.Original = u.String()
 	if rp.Cb.URL != "" {
-		u, err = url.ParseRequestURI(rp.Cb.URL)
+		u, err = url.Parse(rp.Cb.URL)
 		if err != nil {
 			return err
 		}

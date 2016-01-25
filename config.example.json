@@ -28,6 +28,7 @@
     "maxpack": 512,               //   max JSON pack size
     "maxreqsize": 4,              //   max request size (MB)
     "trackers": 2,                //   workers trackers pool size
+    "trackproxy": "X-Real-IP",    //   use proxy header instead remote IP
     "geoipdb": "/tmp/glt.dat"     //   path to GeoLiteCity database file
   },
   "database": {                   // MongoDB configuration:
