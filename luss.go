@@ -122,6 +122,7 @@ func main() {
 		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
 		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
 		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
+		"/api/noweb":     Handler{F: core.HandlerNoWebIndex, Auth: false, API: false, Method: "ANY"},
 		"/api/info":      Handler{F: api.HandlerInfo, Auth: false, API: true, Method: "GET"},
 		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
 		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -255,19 +256,23 @@ func HandlerRedirect(ctx context.Context, short string, r *http.Request) (string
 	if err != nil {
 		return "", err
 	}
-	ch, err := TrackerChan(ctx)
-	if err != nil {
-		// tracker's error is not critical
-		// so only print it here
-		c.L.Error.Println(err)
-	} else {
-		cui := &CuInfo{ctx, cu, r.RemoteAddr}
-		if headProxy := c.Settings.TrackProxy; headProxy != "" {
-			if proxyIP := r.Header.Get(headProxy); proxyIP != "" {
-				cui.addr = proxyIP
+	if c.Settings.TrackOn {
+		ch, err := TrackerChan(ctx)
+		if err != nil {
+			// tracker's error is not critical
+			// so only print it here
+			c.L.Error.Println(err)
+		} else {
+			cui := &CuInfo{ctx, cu, r.RemoteAddr}
+			if headProxy := c.Settings.TrackProxy; headProxy != "" {
+				if proxyIP := r.Header.Get(headProxy); proxyIP != "" {
+					_, port, _ := net.SplitHostPort(cui.addr)
+					cui.addr = net.JoinHostPort(proxyIP, port)
+				}
 			}
+			ch <- cui
 		}
-		ch <- cui
+
 	}
 	// TODO: check direct redirect
 	return cu.Original, nil
@@ -306,6 +311,39 @@ func HandlerIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) E
 	if err != nil {
 		return ErrHandler{err, http.StatusInternalServerError}
 	}
+	return ErrHandler{nil, http.StatusOK}
+}
+
+// HandlerNoWebIndex works like version but return only short link text.
+func HandlerNoWebIndex(ctx context.Context, w http.ResponseWriter, r *http.Request) ErrHandler {
+	c, err := conf.FromContext(ctx)
+	if err != nil {
+		fmt.Fprintf(w, "error: internal error\n")
+		return ErrHandler{nil, http.StatusOK}
+	}
+	u := r.FormValue("u")
+	if u == "" {
+		fmt.Fprintf(w, "error: no data\n")
+		return ErrHandler{nil, http.StatusOK}
+	}
+	param := &trim.ReqParams{
+		Original:  u,
+		Tag:       "",
+		NotDirect: false,
+		TTL:       nil,
+	}
+	err = param.Valid()
+	if err != nil {
+		fmt.Fprintf(w, "error: invalid url\n")
+		return ErrHandler{nil, http.StatusOK}
+	}
+	params := []*trim.ReqParams{param}
+	cus, err := trim.Shorten(ctx, params)
+	if err != nil {
+		fmt.Fprintf(w, "error: internal error\n")
+		return ErrHandler{nil, http.StatusOK}
+	}
+	fmt.Fprintf(w, "%s\n", c.Address(cus[0].String()))
 	return ErrHandler{nil, http.StatusOK}
 }
 

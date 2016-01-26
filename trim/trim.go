@@ -125,11 +125,17 @@ func (rp *ReqParams) Valid() error {
 	if err != nil {
 		return err
 	}
+	if !u.IsAbs() {
+		return errors.New("not absolute URL")
+	}
 	rp.Original = u.String()
 	if rp.Cb.URL != "" {
 		u, err = url.Parse(rp.Cb.URL)
 		if err != nil {
 			return err
+		}
+		if !u.IsAbs() {
+			return errors.New("not absolute URL")
 		}
 		rp.Cb.URL = u.String()
 		if rp.Cb.Method != "GET" && rp.Cb.Method != "POST" {
