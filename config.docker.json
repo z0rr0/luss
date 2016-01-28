@@ -1,0 +1,54 @@
+{
+  "debug": true,                  // turn on debug mode
+  "domain": {                     // domain settings
+    "name": "mydomain",           //   short url domain
+    "secure": false               //   use HTTPS
+  },
+  "listener": {
+    "templates": "/templates",     // folder of templates
+    "host": "",                   // HTTP server host
+    "port": 10001,                // HTTP server port
+    "timeout": 30,                // HTTP server timeout
+    "security": {                 // Security settings
+      "salt": "ABCDEFGHIJKLMNOP", //   secrete salt (min 16 symbols)
+      "tokenlen": 20,             //   token length in bytes
+      "admin": "bf4733916e013e2ff939e1aed57719e0fe4441fd" // admin token part (40 hex)
+    }
+  },
+  "settings": {                   // settings:
+    "trackon": true,              //   turn on request tracking
+    "maxspam": 5,                 //   max spam percents
+    "cleanup": 30,                //   links TTL clean up timeout (seconds)
+    "cballow": true,              //   allow callback responses
+    "cbnum": 2,                   //   number of callbacks goroutines
+    "cbbuf": 1,                   //   channel buffer of callbacks goroutines (less than numcb)
+    "cblength": 255,              //   max length of callback parameter
+    "maxname": 255,               //   max length of project's name
+    "anonymous": true,            //   allow anonymous requests
+    "maxpack": 512,               //   max JSON pack size
+    "maxreqsize": 4,              //   max request size (MB)
+    "trackers": 2,                //   workers trackers pool size
+    "trackproxy": "",    //   use proxy header instead remote IP, for example "X-Real-IP"
+    "geoipdb": "/data/luss/GeoLiteCity.mmdb" //   path to GeoLiteCity database file
+  },
+  "database": {                   // MongoDB configuration:
+    "hosts": ["mongo"],           //   servers list
+    "port": 27017,                //   connection port
+    "timeout": 2,                 //   connection timeout (seconds)
+    "username": "test",           //   auth username
+    "password": "test",           //   auth password
+    "database": "luss",           //   database name
+    "authdb": "admin",            //   auth database
+    "replica": null,              //   replicaset name
+    "ssl": false,                 //   use SSL connection
+    "sslkeyfile": "",             //   SSL key file
+    "reconnects": 3,              //   number of reconnects attempts (min 1)
+    "rcntime": 50,                //   delay between reconnects attempts (milliseconds)
+    "poollimit": 512,             //   sets the maximum number of sockets in use in a single server
+    "debug": false                //   debug mode
+  },
+  "cache": {                      // cache settings
+    "urls": 8,                    // LRU cache size for short URLs, 0 - disabled
+    "templates": 0                // LRU templates cache, 0 - disabled
+  }
+}
