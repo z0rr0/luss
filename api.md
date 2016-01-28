@@ -2,7 +2,10 @@
 
 User's token should be sent inside header **Authorization** with a prefix **Bearer**. If the token is not presented then request will be handled as anonymous one.
 
-The response after error:
+Only admin user can control other accounts.
+
+Any users' request JSON arrays have a limit, it is **maxpack** from the configuration file. A common response has next structure:
+
 
 ```js
 {
@@ -12,7 +15,10 @@ The response after error:
 }
 ```
 
-JSON array size has a limit, it is **maxpack** from the configuration file.
+If "errcode" is equal zero, then there was no any error.
+
+
+## Get info
 
 **JSON GET /api/info** - get main service info
 
@@ -28,7 +34,7 @@ Not needed any data.
     {
       "version": "0.0.1", // API version
       "authok": true,     // or false token is empty or invalid
-      "pack_size": 512    // max request pack size
+      "pack_size": 512    // max request pack size ("maxpack")
     }
   ]
 }
@@ -38,6 +44,8 @@ Not needed any data.
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" http://<CUSTOM_DOMAIN>/api/info
 ```
+
+## Add/delete new short URL
 
 **JSON POST /api/add** - add new short links
 
@@ -108,6 +116,9 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"short": "http://<CUSTOM_DOMAIN>/Pr"}, {"short": "http://<CUSTOM_DOMAIN>/Hw"}]' http://<CUSTOM_DOMAIN>/api/get
 ```
 
+## Users' control
+
+
 **JSON POST /api/user/add** - creates new user, only user with "admin" role has permissions for this request.
 
 ```js
@@ -137,7 +148,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/add
 ```
 
-**JSON POST /api/user/pwd** - updates new user's token, only admin can change data of other users, but everyone can update his token.
+**JSON POST /api/user/pwd** - updates new user's token, only admin can change data of other users, but everyone can update own token.
 
 ```js
 // request
@@ -166,7 +177,7 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/pwd
 ```
 
-**JSON POST /api/user/del** - remove users, only admin can has permissions for this request.
+**JSON POST /api/user/del** - remove users, only "admin" can has permissions for this request.
 
 ```js
 // request
@@ -193,6 +204,8 @@ curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X PO
 // example
 curl -H "Content-Type: application/json" -H "Authorization: Bearer<TOKEN>" -X POST --data '[{"name": "user1"}, {"name": "user2"}]' http://<CUSTOM_DOMAIN>/api/user/del
 ```
+
+## Export/import
 
 **JSON POST /api/import** - import other short URLs (only for admin)
 

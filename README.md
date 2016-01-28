@@ -15,6 +15,7 @@ Features:
 * supports TTL (time to live) for temporary links
 * supports cache control
 * has RESTFull API: multi-items, users control
+* can be run as a [Docker](https://www.docker.com/) [container](https://hub.docker.com/r/z0rr0/luss/).
 
 ### API
 
