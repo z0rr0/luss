@@ -25,13 +25,13 @@ BUILD="$REPO/scripts/build.sh"
 ONLYTEST=""
 
 PACKAGES_TEST=( \
-# "api" \
-# "auth" \
+"api" \
+"auth" \
 "conf" \
-# "core" \
-# "db" \
-# "test" \
-# "trim" \
+"core" \
+"db" \
+"test" \
+"trim" \
 )
 
 PACKAGES_CHECK=( \

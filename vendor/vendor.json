@@ -34,8 +34,8 @@
 		},
 		{
 			"path": "gopkg.in/mgo.v2",
-			"revision": "e30de8ac9ae3b30df7065f766c71f88bba7d4e49",
-			"revisionTime": "2015-12-07T00:15:13-02:00"
+			"revision": "3871eddd896b8b70fe630053af5e81f2c1e8ed53",
+			"revisionTime": "2016-02-04T16:00:46-02:00"
 		},
 		{
 			"path": "gopkg.in/mgo.v2/bson",
