@@ -9,7 +9,7 @@
 # -r - clear folder
 
 PROGRAM="LUSS"
-GOBIN="`which go`"
+GO_BIN="`which go`"
 GITBIN="`which git`"
 REPO="github.com/z0rr0/luss"
 VERBOSE=""
@@ -26,7 +26,7 @@ if [ -z "$LOCALGOPATH" ]; then
     echo "ERROR: set $GOPATH env"
     exit 1
 fi
-if [ ! -x "$GOBIN" ]; then
+if [ ! -x "${GO_BIN}" ]; then
     echo "ERROR: can't find 'go' binary"
     exit 2
 fi
@@ -71,5 +71,5 @@ if [[ -n "$CLEAN" ]]; then
     find ${LOCALGOPATH}/src/${REPO} -type f -name "*.test" -exec rm -f '{}' \;
 fi
 
-$GOBIN install $options -ldflags "$version" $REPO
+${GO_BIN} install $options -ldflags "$version" $REPO
 exit $?
