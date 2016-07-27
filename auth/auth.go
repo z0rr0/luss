@@ -119,7 +119,7 @@ func InitUsers(c *conf.Config) error {
 	h := tokenHash(b, c)
 	now := time.Now().UTC()
 	users := []*User{
-		&User{
+		{
 			Name:     "admin",
 			Disabled: false,
 			Token:    hex.EncodeToString(h),
@@ -127,7 +127,7 @@ func InitUsers(c *conf.Config) error {
 			Modified: now,
 			Created:  now,
 		},
-		&User{
+		{
 			Name:     Anonymous,
 			Disabled: false,
 			Token:    "",

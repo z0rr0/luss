@@ -1,0 +1,13 @@
+bin/*
+pkg/*
+vendor/*
+pkg/*
+Godeps/*
+.git/*
+.cache/*
+.idea/*
+*.exe
+*.test
+*.prof
+coverage.out
+trace.out

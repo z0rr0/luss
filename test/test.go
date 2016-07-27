@@ -6,28 +6,28 @@
 package test
 
 import (
-    "log"
-    "os"
-    "path/filepath"
+	"log"
+	"os"
+	"path/filepath"
 )
 
 const (
-    // Config - test configuration name
-    Config = "luss.json"
+	// Config - test configuration name
+	Config = "luss.json"
 )
 
 var (
-    // LoggerError is a test logger.
-    LoggerError = log.New(os.Stderr, "TEST [LUSS]: ", log.Ldate|log.Ltime|log.Lshortfile)
+	// LoggerError is a test logger.
+	LoggerError = log.New(os.Stderr, "TEST [LUSS]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // TcBuildDir is used for the tests and returns a directory for the build.
 func TcBuildDir() string {
-    repoDir := []string{os.Getenv("GOPATH"), "src", "github.com", "z0rr0", "luss"}
-    return filepath.Join(repoDir...)
+	repoDir := []string{os.Getenv("GOPATH"), "src", "github.com", "z0rr0", "luss"}
+	return filepath.Join(repoDir...)
 }
 
 // TcConfigName returns test configuration file name
 func TcConfigName() string {
-    return filepath.Join(os.Getenv("GOPATH"), Config)
+	return filepath.Join(os.Getenv("GOPATH"), Config)
 }

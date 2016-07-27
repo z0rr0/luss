@@ -26,3 +26,4 @@ coverage.out
 trace.out
 Godeps/_workspace/*
 vendor/*
+.idea/*

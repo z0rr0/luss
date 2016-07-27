@@ -42,6 +42,8 @@ var (
 	Revision = ""
 	// BuildDate is build date
 	BuildDate = ""
+	// GoVersion is runtime Go language version
+	GoVersion = runtime.Version()
 )
 
 // Handler is a struct to check and handle incoming HTTP request.
@@ -103,7 +105,15 @@ func main() {
 		errc <- interrupt()
 	}()
 	listener := net.JoinHostPort(cfg.Listener.Host, fmt.Sprint(cfg.Listener.Port))
-	cfg.L.Info.Printf("%v running (debug=%v):\n\tlisten: %v\n\tversion=%v [%v %v]", Name, cfg.Debug, listener, Version, Revision, BuildDate)
+	cfg.L.Info.Printf("%v running (debug=%v):\n\tlisten: %v\n\tgo version: %v\n\tversion=%v [%v %v]",
+		Name,
+		cfg.Debug,
+		listener,
+		GoVersion,
+		Version,
+		Revision,
+		BuildDate,
+	)
 	server := &http.Server{
 		Addr:           listener,
 		Handler:        http.DefaultServeMux,

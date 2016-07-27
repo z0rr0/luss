@@ -7,6 +7,7 @@
 # -v - verbose mode
 # -f - force mode
 # -r - clear folder
+# -c - build alpine container
 
 PROGRAM="LUSS"
 GO_BIN="`which go`"
@@ -15,6 +16,7 @@ REPO="github.com/z0rr0/luss"
 VERBOSE=""
 CLEAN=""
 LOCALGOPATH="$GOPATH"
+DOCKER=""
 
 if [[ -n "$WINDIR" ]]; then
     # replace LOCALGOPATH
@@ -45,7 +47,7 @@ dbuild="`date --utc +\"%F_%T\"`UTC"
 version="-X main.Version=$gittag -X main.Revision=git:${gitver:0:7} -X main.BuildDate=$dbuild"
 
 options=""
-while getopts ":fvpr" opt; do
+while getopts ":fvprc" opt; do
     case $opt in
         f)
             # options="$options -a"
@@ -59,6 +61,9 @@ while getopts ":fvpr" opt; do
         r)
             CLEAN="clean"
             ;;
+        c)
+            DOCKER="docker"
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
             ;;
@@ -69,6 +74,11 @@ if [[ -n "$CLEAN" ]]; then
     find ${LOCALGOPATH}/src/${REPO} -type f -name coverage.out -exec rm -f '{}' \;
     find ${LOCALGOPATH}/src/${REPO} -type f -name trace.out -exec rm -f '{}' \;
     find ${LOCALGOPATH}/src/${REPO} -type f -name "*.test" -exec rm -f '{}' \;
+fi
+
+if [[ -n "$DOCKER" ]]; then
+    /bin/bash ${LOCALGOPATH}/src/${REPO}/scripts/alpine.sh "$version"
+    echo "Alpine docker container is built"
 fi
 
 ${GO_BIN} install $options -ldflags "$version" $REPO

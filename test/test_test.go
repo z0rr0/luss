@@ -6,28 +6,28 @@
 package test
 
 import (
-    "os"
-    "testing"
+	"os"
+	"testing"
 )
 
 func TestTcBuildDir(t *testing.T) {
-    v := TcBuildDir()
-    if v == "" {
-        t.Errorf("icorrect behavior")
-    }
-    _, err := os.Stat(v)
-    if err != nil {
-        t.Errorf("invalid: %v", err)
-    }
+	v := TcBuildDir()
+	if v == "" {
+		t.Errorf("icorrect behavior")
+	}
+	_, err := os.Stat(v)
+	if err != nil {
+		t.Errorf("invalid: %v", err)
+	}
 }
 
 func TestTcConfigName(t *testing.T) {
-    v := TcConfigName()
-    if len(v) <= len(Config) {
-        t.Errorf("icorrect behavior")
-    }
-    _, err := os.Stat(v)
-    if err != nil {
-        t.Errorf("invalid: %v", err)
-    }
+	v := TcConfigName()
+	if len(v) <= len(Config) {
+		t.Errorf("icorrect behavior")
+	}
+	_, err := os.Stat(v)
+	if err != nil {
+		t.Errorf("invalid: %v", err)
+	}
 }
