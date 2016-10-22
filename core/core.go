@@ -6,6 +6,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -22,7 +23,6 @@ import (
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/stats"
 	"github.com/z0rr0/luss/trim"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -134,8 +134,8 @@ func clean(c *conf.Config) error {
 		return err
 	}
 	condition := bson.D{
-		{"off", false},
-		{"ttl", bson.M{"$lt": time.Now().UTC()}},
+		{Name: "off", Value: false},
+		{Name: "ttl", Value: bson.M{"$lt": time.Now().UTC()}},
 	}
 	update := bson.M{"$set": bson.M{"off": true}}
 	cache, cacheOn := c.Cache.Strorage["URL"]

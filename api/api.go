@@ -6,6 +6,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +18,6 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/trim"
-	"golang.org/x/net/context"
 )
 
 const (

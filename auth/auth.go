@@ -6,6 +6,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -16,7 +17,6 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"golang.org/x/crypto/sha3"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

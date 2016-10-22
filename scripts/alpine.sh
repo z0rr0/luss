@@ -7,7 +7,7 @@ DOCKERFILE="src/${MAIN_PACKAGE}/scripts/Dockerfile"
 TEMPLATES="src/${MAIN_PACKAGE}/templates"
 ATTRS="$1"
 TAG="luss:alpine"
-GOCONTAINER="golang:1.6.3-alpine"
+GOCONTAINER="golang:1.7-alpine"
 
 if [[ -z "$GOPATH" ]]; then
 	echo "ERROR: set GOPATH"

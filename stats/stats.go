@@ -10,6 +10,7 @@
 package stats
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"net"
@@ -20,7 +21,6 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/trim"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2/bson"
 )
 

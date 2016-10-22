@@ -7,6 +7,7 @@ package conf
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,6 @@ import (
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/oschwald/geoip2-golang"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 )
 

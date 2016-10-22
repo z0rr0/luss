@@ -5,6 +5,7 @@
 package core
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/test"
-	"golang.org/x/net/context"
 )
 
 func TestHandlerTest(t *testing.T) {

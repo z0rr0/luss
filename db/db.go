@@ -6,6 +6,7 @@
 package db
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
@@ -17,7 +18,6 @@ import (
 	"time"
 
 	"github.com/z0rr0/luss/conf"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -69,47 +69,38 @@ func CtxSession(ctx context.Context) (*mgo.Session, error) {
 	return s, nil
 }
 
-// connect sets new MongoDB connection
-// and saves the session to Conn.S fields.
-func connect(c *conf.Conn) error {
+// NewSession returns new MongoDB session based on Conn data.
+func NewSession(c *conf.Conn, primary bool) (*mgo.Session, error) {
 	c.M.Lock()
 	defer c.M.Unlock()
-	if c.S == nil {
-		Logger.Println("new session creation")
+	switch {
+	case (c.S == nil) || (c.S.Ping() != nil):
 		s, err := mongoDBConnection(c.Cfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		if !primary {
+			s.SetMode(mgo.SecondaryPreferred, true)
+		}
+		Logger.Printf("new session creation: %p", s)
 		c.S = s
-	} else if c.S.Ping() != nil {
-		Logger.Println("session recreation")
+	case c.S.Ping() != nil:
 		s, err := mongoDBConnection(c.Cfg)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		if !primary {
+			s.SetMode(mgo.SecondaryPreferred, true)
+		}
+		Logger.Printf("new session recreation: %p", s)
 		// old session is not valid
 		// close it and use new one
 		old := c.S
 		c.S = s
 		old.Close()
+		old = nil
 	}
-	return nil
-}
-
-// NewSession returns new MongoDB session based on Conn data.
-func NewSession(c *conf.Conn, primary bool) (*mgo.Session, error) {
-	if (c.S == nil) || (c.S.Ping() != nil) {
-		err := connect(c)
-		if err != nil {
-			Logger.Printf("invalid connect: %v", err)
-			return nil, err
-		}
-	}
-	s := c.S.Copy()
-	if !primary {
-		s.SetMode(mgo.SecondaryPreferred, true)
-	}
-	return s, nil
+	return c.S.Clone(), nil
 }
 
 // NewCtxSession creates new database session and saves it to the context.

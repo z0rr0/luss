@@ -8,6 +8,7 @@ package trim
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -23,7 +24,6 @@ import (
 	"github.com/z0rr0/luss/auth"
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -304,7 +304,7 @@ func Lengthen(ctx context.Context, short string) (*CustomURL, error) {
 		return nil, err
 	}
 	cu := &CustomURL{}
-	err = coll.Find(bson.D{{"_id", num}, {"off", false}}).One(cu)
+	err = coll.Find(bson.D{{Name: "_id", Value: num}, {Name: "off", Value: false}}).One(cu)
 	if err != nil {
 		return nil, err
 	}

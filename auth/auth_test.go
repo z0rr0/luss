@@ -5,6 +5,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/z0rr0/luss/conf"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/test"
-	"golang.org/x/net/context"
 )
 
 func TestEqualBytes(t *testing.T) {

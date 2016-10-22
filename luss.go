@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -24,7 +25,6 @@ import (
 	"github.com/z0rr0/luss/core"
 	"github.com/z0rr0/luss/db"
 	"github.com/z0rr0/luss/trim"
-	"golang.org/x/net/context"
 	"gopkg.in/mgo.v2"
 )
 
@@ -128,19 +128,19 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	// keys should not match to trim.IsShortURL pattern (short URLs set)
 	handlers := map[string]Handler{
-		"/":              Handler{F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
-		"/test/t":        Handler{F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
-		"/error/notfoud": Handler{F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
-		"/error/common":  Handler{F: core.HandlerError, Auth: false, API: false, Method: "GET"},
-		"/api/noweb":     Handler{F: core.HandlerNoWebIndex, Auth: false, API: false, Method: "ANY"},
-		"/api/info":      Handler{F: api.HandlerInfo, Auth: false, API: true, Method: "GET"},
-		"/api/add":       Handler{F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
-		"/api/get":       Handler{F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
-		"/api/user/add":  Handler{F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
-		"/api/user/pwd":  Handler{F: api.HandlerPwd, Auth: true, API: true, Method: "POST"},
-		"/api/user/del":  Handler{F: api.HandlerUserDel, Auth: true, API: true, Method: "POST"},
-		"/api/import":    Handler{F: api.HandlerImport, Auth: true, API: true, Method: "POST"},
-		"/api/export":    Handler{F: api.HandlerExport, Auth: true, API: true, Method: "POST"},
+		"/":              {F: core.HandlerIndex, Auth: false, API: false, Method: "ANY"},
+		"/test/t":        {F: core.HandlerTest, Auth: false, API: false, Method: "ANY"},
+		"/error/notfoud": {F: core.HandlerNotFound, Auth: false, API: false, Method: "GET"},
+		"/error/common":  {F: core.HandlerError, Auth: false, API: false, Method: "GET"},
+		"/api/noweb":     {F: core.HandlerNoWebIndex, Auth: false, API: false, Method: "ANY"},
+		"/api/info":      {F: api.HandlerInfo, Auth: false, API: true, Method: "GET"},
+		"/api/add":       {F: api.HandlerAdd, Auth: false, API: true, Method: "POST"},
+		"/api/get":       {F: api.HandlerGet, Auth: false, API: true, Method: "POST"},
+		"/api/user/add":  {F: api.HandlerUserAdd, Auth: true, API: true, Method: "POST"},
+		"/api/user/pwd":  {F: api.HandlerPwd, Auth: true, API: true, Method: "POST"},
+		"/api/user/del":  {F: api.HandlerUserDel, Auth: true, API: true, Method: "POST"},
+		"/api/import":    {F: api.HandlerImport, Auth: true, API: true, Method: "POST"},
+		"/api/export":    {F: api.HandlerExport, Auth: true, API: true, Method: "POST"},
 		// "/api/stats"
 	}
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
